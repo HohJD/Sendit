@@ -57,25 +57,25 @@ const byShare = Map.groupBy(shareItems, (item) => item.shareId);
 
 <DashboardShell title={`@${handle} — finds`} active="finds">
   <header class="mb-10">
-    <p class="text-[11px] font-medium tracking-[-0.02em] text-white/40 uppercase sm:text-[13px]">
+    <p class="text-[12px] font-medium tracking-wide text-stone-500 uppercase">
       Browsing a test user's finds
     </p>
-    <h1 class="mt-3 text-[44px] leading-[0.9] font-medium tracking-[-0.04em] sm:text-[64px]">
+    <h1 class="mt-3 text-[36px] leading-[1] font-medium tracking-[-0.03em] sm:text-[44px]">
       @{handle}
     </h1>
-    <p class="mt-3 max-w-lg text-[15px] leading-relaxed text-white/50">
+    <p class="mt-3 max-w-lg text-[15px] leading-relaxed text-stone-500">
       These are real reels this account already sent us. You can run the real Prava checkout on
       any of them — it opens under your own signed-in session, not theirs.
     </p>
   </header>
 
-  {error && <div class="border border-red-500/30 bg-red-500/10 p-5 text-[13px] text-red-300">{error}</div>}
+  {error && <div class="rounded-2xl border border-red-200 bg-red-50 p-5 text-[13px] text-red-600">{error}</div>}
 
   {
     !error && !targetUserId && (
-      <div class="border border-dashed border-white/15 px-6 py-16 text-center">
-        <p class="text-[20px] font-medium tracking-[-0.04em] sm:text-[30px]">No test user found</p>
-        <p class="mx-auto mt-3 max-w-sm text-[13px] leading-relaxed text-white/40 sm:text-[15px]">
+      <div class="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
+        <p class="text-[20px] font-medium tracking-[-0.03em] sm:text-[26px]">No test user found</p>
+        <p class="mx-auto mt-3 max-w-sm text-[13px] leading-relaxed text-stone-500 sm:text-[15px]">
           "@{handle}" hasn't messaged us, or hasn't been claimed on our end yet.
         </p>
       </div>
@@ -84,8 +84,8 @@ const byShare = Map.groupBy(shareItems, (item) => item.shareId);
 
   {
     !error && targetUserId && userShares.length === 0 && (
-      <div class="border border-dashed border-white/15 px-6 py-16 text-center">
-        <p class="text-[20px] font-medium tracking-[-0.04em] sm:text-[30px]">Nothing here yet</p>
+      <div class="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
+        <p class="text-[20px] font-medium tracking-[-0.03em] sm:text-[26px]">Nothing here yet</p>
       </div>
     )
   }

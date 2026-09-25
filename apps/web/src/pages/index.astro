@@ -1,9 +1,24 @@
 ---
 import '../styles/global.css';
-import { LandingExperience } from '../components/landing/LandingExperience.tsx';
-import { HOW_IT_WORKS, REEL_VIDEO } from '../components/landing/content.ts';
+import Wordmark from '../components/Wordmark.astro';
+import { HOW_IT_WORKS } from '../components/landing/content.ts';
 
 if (Astro.locals.userId) return Astro.redirect('/dashboard');
+
+const GET_ITEMS = [
+  {
+    title: 'One-time card',
+    body: 'A card minted per purchase that works once, at that merchant, for that amount — then it’s dead.',
+  },
+  {
+    title: 'Real storefronts',
+    body: 'Matches land on the merchant’s own product page, and the agent drives their actual checkout.',
+  },
+  {
+    title: 'Nothing leaves the chat',
+    body: 'Your real card never reaches the merchant — or us. The passkey approval happens on Prava’s surface.',
+  },
+] as const;
 ---
 
 <!doctype html>
@@ -11,12 +26,12 @@ if (Astro.locals.userId) return Astro.redirect('/dashboard');
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SENDIT — send a reel, get the product</title>
+    <title>sendit — send a link, get the product</title>
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="application-name" content="sendit" />
     <meta property="og:site_name" content="sendit" />
-    <meta property="og:title" content="SENDIT — send a reel, get the product" />
+    <meta property="og:title" content="sendit — send a link, get the product" />
     <meta property="og:image" content="/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -26,84 +41,164 @@ if (Astro.locals.userId) return Astro.redirect('/dashboard');
       rel="stylesheet"
     />
   </head>
-  <body class="font-display m-0 bg-white">
-    <LandingExperience client:only="react" />
-
-    <section id="how-it-works" class="relative z-30 bg-white px-4 pt-16 pb-24 sm:px-8 sm:pt-24">
-      <div class="mx-auto grid w-full max-w-6xl gap-12 lg:grid-cols-[1fr_360px] lg:gap-20">
-        <div>
-          <p class="text-[11px] font-medium tracking-[-0.02em] text-stone-400 uppercase sm:text-[13px]">
-            How it works
-          </p>
-          <h2
-            class="mt-3 text-[44px] leading-[0.9] font-medium tracking-[-0.04em] text-stone-900 sm:text-[72px]"
+  <body class="font-display bg-[#fafaf9] text-stone-900 antialiased">
+    <header
+      class="sticky top-0 z-40 border-b border-stone-200 bg-[#fafaf9]/80 backdrop-blur"
+    >
+      <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-8">
+        <Wordmark size="md" />
+        <nav class="flex items-center gap-5">
+          <a
+            href="#how-it-works"
+            class="hidden text-[13px] font-medium text-stone-500 transition-colors hover:text-stone-900 sm:inline"
           >
-            Send a reel,<br />get the product
-          </h2>
-
-          <ol class="mt-12 border-t border-stone-200">
-            {
-              HOW_IT_WORKS.map((step) => (
-                <li class="flex gap-6 border-b border-stone-200 py-6 sm:gap-10 sm:py-8">
-                  <span class="shrink-0 text-[13px] font-medium tracking-[-0.02em] text-stone-400 tabular-nums">
-                    {step.n}
-                  </span>
-                  <div>
-                    <h3 class="text-[20px] leading-none font-medium tracking-[-0.04em] text-stone-900 sm:text-[30px]">
-                      {step.title}
-                    </h3>
-                    <p class="mt-3 max-w-lg text-[13px] leading-relaxed text-stone-500 sm:text-[15px]">
-                      {step.body}
-                    </p>
-                  </div>
-                </li>
-              ))
-            }
-          </ol>
-
+            How it works
+          </a>
           <button
             type="button"
             data-login
-            class="mt-10 flex h-[80px] w-full items-center justify-center rounded-full bg-stone-900 transition-transform hover:scale-[1.01] sm:h-[100px] sm:w-[330px]"
+            class="rounded-full bg-gradient-brand px-5 py-2.5 text-[13px] font-medium text-white transition-transform hover:scale-[1.02]"
           >
-            <span class="text-[48px] leading-none font-medium tracking-[-0.04em] text-white sm:text-[64px]">
-              start
-            </span>
+            Sign in
           </button>
-        </div>
+        </nav>
+      </div>
+    </header>
 
-        <div class="mx-auto w-full max-w-[320px] lg:mx-0">
-          <div class="overflow-hidden rounded-[28px] border border-stone-200 bg-stone-100 shadow-sm">
-            <video
-              src={REEL_VIDEO}
-              autoplay
-              loop
-              muted
-              playsinline
-              preload="metadata"
-              class="aspect-[9/16] h-full w-full object-cover"></video>
+    <section class="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-16 sm:px-8 sm:py-24 lg:grid-cols-2">
+      <div>
+        <img src="/apple-touch-icon.png" alt="sendit" class="h-14 w-14 rounded-2xl" />
+        <h1
+          class="mt-6 text-[56px] leading-[0.95] font-medium tracking-[-0.04em] sm:text-[72px]"
+        >
+          Send it.<br />We find it.<br />We buy it.
+        </h1>
+        <p class="mt-6 max-w-md text-[15px] leading-relaxed text-stone-500 sm:text-[17px]">
+          Message a link, a screenshot, or just "find me this jacket" on WhatsApp. Sendit
+          identifies the product, finds it on a real store, and checks out with a one-time
+          Prava card — you only approve.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <button
+            type="button"
+            data-login
+            class="rounded-full bg-gradient-brand px-6 py-3 text-[15px] font-medium text-white transition-transform hover:scale-[1.02]"
+          >
+            Sign in
+          </button>
+          <a
+            href="#how-it-works"
+            class="rounded-full border border-stone-300 px-6 py-3 text-[15px] font-medium text-stone-700 transition-colors hover:border-stone-900"
+          >
+            How it works
+          </a>
+        </div>
+        <p class="mt-6 text-[12px] text-stone-400">
+          Sandbox demo — test purchases only, no real money.
+        </p>
+      </div>
+
+      <!-- CSS-only stand-in for the chat experience -->
+      <div class="mx-auto w-full max-w-[360px] rounded-[32px] border border-stone-200 bg-white p-4 shadow-sm">
+        <div class="flex items-center gap-2 border-b border-stone-100 pb-3">
+          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span class="text-[13px] font-medium">Sendit</span>
+          <span class="ml-auto text-[11px] text-stone-400 uppercase">WhatsApp</span>
+        </div>
+        <div class="flex flex-col gap-2 pt-4 text-[13px] leading-snug">
+          <div class="ml-auto max-w-[75%] rounded-2xl rounded-tr-sm bg-stone-900 px-3.5 py-2 text-white">
+            find me a black waffle jacket
           </div>
-          <p class="mt-4 text-center text-[11px] tracking-[-0.02em] text-stone-400 uppercase">
-            The whole thing, start to finish
-          </p>
+          <div class="max-w-[80%] rounded-2xl rounded-tl-sm border border-stone-200 bg-white px-3.5 py-2 text-stone-700">
+            On it — searching for "find me a black waffle jacket"…
+          </div>
+          <div class="max-w-[85%] rounded-2xl rounded-tl-sm border border-stone-200 bg-white px-3.5 py-3">
+            <div class="flex items-center gap-3">
+              <div class="h-12 w-12 shrink-0 rounded-xl bg-gradient-brand"></div>
+              <div class="min-w-0">
+                <p class="truncate font-medium text-stone-900">The Long Haul Jacket</p>
+                <p class="text-[12px] text-stone-500">Taylor Stitch — $128.00</p>
+              </div>
+            </div>
+            <p class="mt-3 text-[12px] text-stone-500">
+              Test purchase, no real money (Prava sandbox).
+            </p>
+            <div class="mt-3 flex gap-2">
+              <span class="rounded-full bg-gradient-brand px-4 py-1.5 text-[12px] font-medium text-white">
+                Approve
+              </span>
+              <span class="rounded-full border border-stone-300 px-4 py-1.5 text-[12px] font-medium text-stone-700">
+                Not this one
+              </span>
+            </div>
+          </div>
+          <div class="max-w-[85%] rounded-2xl rounded-tl-sm border border-stone-200 bg-white px-3.5 py-2 text-stone-700">
+            Order placed (sandbox). Card was single-use, locked to Taylor Stitch, $128.00.
+          </div>
         </div>
       </div>
     </section>
 
+    <section id="how-it-works" class="mx-auto w-full max-w-6xl px-4 py-16 sm:px-8 sm:py-24">
+      <p class="text-[12px] font-medium tracking-wide text-stone-500 uppercase">How it works</p>
+      <h2 class="mt-3 text-[36px] leading-[1] font-medium tracking-[-0.03em] sm:text-[44px]">
+        Three messages, one purchase
+      </h2>
+
+      <ol class="mt-10 border-t border-stone-200">
+        {
+          HOW_IT_WORKS.map((step) => (
+            <li class="flex gap-6 border-b border-stone-200 py-6 sm:gap-10 sm:py-8">
+              <span class="text-gradient shrink-0 text-[13px] font-semibold tabular-nums">
+                {step.n}
+              </span>
+              <div>
+                <h3 class="text-[18px] font-medium tracking-[-0.03em] sm:text-[22px]">
+                  {step.title}
+                </h3>
+                <p class="mt-2 max-w-lg text-[15px] leading-relaxed text-stone-500">
+                  {step.body}
+                </p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section class="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-8">
+      <div class="grid gap-4 sm:grid-cols-3">
+        {
+          GET_ITEMS.map((item) => (
+            <div class="rounded-2xl border border-stone-200 bg-white p-6 transition-colors hover:border-stone-300">
+              <h3 class="text-[15px] font-medium tracking-[-0.02em]">{item.title}</h3>
+              <p class="mt-2 text-[13px] leading-relaxed text-stone-500">{item.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <footer class="border-t border-stone-200">
+      <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-8">
+        <Wordmark size="sm" />
+        <p class="text-[12px] text-stone-400">© 2026</p>
+        <a href="/privacy" class="text-[12px] text-stone-500 transition-colors hover:text-stone-900">
+          Privacy
+        </a>
+      </div>
+    </footer>
+
     <div
       id="login"
       hidden
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/80 px-4 backdrop-blur"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/50 px-4 backdrop-blur-sm"
     >
-      <div class="w-full max-w-md bg-white p-8">
+      <div class="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-8 shadow-lg">
         <div class="flex items-start justify-between">
           <div>
-            <p class="text-[11px] font-medium tracking-[-0.02em] text-stone-400 uppercase">
-              Sign in
-            </p>
-            <h2
-              class="mt-2 text-[30px] leading-none font-medium tracking-[-0.04em] text-stone-900 sm:text-[36px]"
-            >
+            <p class="text-[12px] font-medium tracking-wide text-stone-500 uppercase">Sign in</p>
+            <h2 class="mt-2 text-[30px] leading-none font-medium tracking-[-0.03em] text-stone-900">
               Claim your finds
             </h2>
           </div>
@@ -111,15 +206,14 @@ if (Astro.locals.userId) return Astro.redirect('/dashboard');
             type="button"
             id="login-close"
             aria-label="Close"
-            class="text-[15px] font-medium tracking-[-0.02em] text-stone-400 uppercase hover:text-stone-900"
+            class="text-[15px] font-medium text-stone-400 transition-colors hover:text-stone-900"
           >
             &times;
           </button>
         </div>
 
         <p class="mt-4 text-[13px] leading-relaxed text-stone-500">
-          Use the Instagram handle you sent the reel from — that is what binds your shares to this
-          account.
+          Email signs you in. Add the Instagram handle you DM from if you use Instagram.
         </p>
 
         <form method="POST" action="/dev-login" class="mt-6 space-y-3">
@@ -128,18 +222,17 @@ if (Astro.locals.userId) return Astro.redirect('/dashboard');
             name="email"
             required
             placeholder="you@example.com"
-            class="w-full rounded-full border border-stone-300 px-5 py-3 text-[15px] tracking-[-0.02em] text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+            class="w-full rounded-full border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
           />
           <input
             type="text"
             name="instagram"
-            required
-            placeholder="your.instagram"
-            class="w-full rounded-full border border-stone-300 px-5 py-3 text-[15px] tracking-[-0.02em] text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+            placeholder="your.instagram (optional)"
+            class="w-full rounded-full border border-stone-300 bg-white px-4 py-3 text-[15px] text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
           />
           <button
             type="submit"
-            class="w-full rounded-full bg-stone-900 px-6 py-4 text-[15px] font-medium tracking-[-0.02em] text-white sm:text-[20px]"
+            class="w-full rounded-full bg-gradient-brand px-6 py-3.5 text-[15px] font-medium text-white transition-transform hover:scale-[1.01]"
           >
             Continue
           </button>

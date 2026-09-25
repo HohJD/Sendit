@@ -1,9 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-
-const EASE = [0.25, 0.1, 0.25, 1] as const;
-
-const SYMBOLS = ['8', '$', '^^', '%', '/'];
 
 const steps = (merchant: string) =>
   [
@@ -220,55 +215,36 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
   const settled = phase === 'placed';
 
   return (
-    <div className="relative flex min-h-dvh flex-col px-4 pt-4 pb-10 sm:px-8 sm:pt-8 sm:pb-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8 sm:py-12">
       <div
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{
-          background: 'radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.10), transparent 60%)',
-        }}
-      />
-
-      <Chrome merchant={merchantName} />
-
-      <div
-        className={`relative z-10 mx-auto grid w-full flex-1 items-center gap-8 pt-14 sm:pt-20 ${
-          imageUrl ? 'max-w-6xl lg:grid-cols-2 lg:gap-16' : 'max-w-xl'
+        className={`grid items-start gap-8 ${
+          imageUrl ? 'lg:grid-cols-2 lg:gap-16' : 'max-w-xl'
         }`}
       >
         {imageUrl && <Artwork imageUrl={imageUrl} title={title} settled={settled} />}
 
         <div className="flex flex-col">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: EASE }}
-          >
-            <p className="mb-4 inline-block w-fit border border-white/15 px-3 py-1.5 text-[11px] font-medium tracking-[-0.02em] text-white/50 uppercase sm:text-[12px]">
+          <div className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-8">
+            <span className="inline-block rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-500 uppercase">
               Sandbox — test purchase, no real money
-            </p>
-            <p className="text-[11px] font-medium tracking-[-0.02em] text-white/40 uppercase sm:text-[13px]">
+            </span>
+            <p className="mt-4 text-[12px] font-medium tracking-wide text-stone-500 uppercase">
               {merchantName}
             </p>
-            <h1 className="mt-3 text-[30px] leading-[0.95] font-medium tracking-[-0.04em] text-white sm:text-[44px]">
+            <h1 className="mt-2 text-[30px] leading-[0.95] font-medium tracking-[-0.03em] text-stone-900 sm:text-[44px]">
               {title}
             </h1>
-            <p className="mt-4 text-[60px] leading-none font-medium tracking-[-0.04em] text-white sm:text-[80px]">
+            <p className="text-gradient mt-4 text-[56px] leading-none font-semibold tracking-[-0.03em] sm:text-[72px]">
               {priceLabel}
             </p>
-          </motion.div>
 
-          <div className="mt-8">
-            <AnimatePresence mode="wait">
+            <div className="mt-8">
               {phase === 'idle' ? (
-                <motion.div
-                  key="idle"
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.35, ease: EASE }}
-                >
+                <div>
                   <Guardrails merchant={merchantName} priceLabel={priceLabel} />
                   {passkeyReady === false && (
-                    <div className="mt-8 border border-amber-300/40 p-4">
-                      <p className="text-[13px] leading-relaxed text-amber-300/90">
+                    <div className="mt-8 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+                      <p className="text-[13px] leading-relaxed text-amber-700">
                         This browser reports no passkey — Prava needs Face ID, Touch ID or Windows
                         Hello. You can still try, but if it dies at authorization, open the page in
                         Safari or Chrome on a device that has one.
@@ -276,24 +252,15 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                     </div>
                   )}
                   <BuyButton onClick={start} />
-                </motion.div>
+                </div>
               ) : (
-                <motion.div
-                  key="running"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.45, ease: EASE, delay: 0.1 }}
-                >
-                  <Timeline
-                    stage={stage}
-                    merchant={merchantName}
-                    phase={phase}
-                  />
+                <div>
+                  <Timeline stage={stage} merchant={merchantName} phase={phase} />
 
-                  <p className="mt-4 font-mono text-[11px] text-white/25">Order {orderId}</p>
+                  <p className="mt-4 font-mono text-[11px] text-stone-400">Order {orderId}</p>
 
                   {phase === 'buying' && (
-                    <p className="mt-4 text-[13px] leading-relaxed text-white/40">
+                    <p className="mt-4 text-[13px] leading-relaxed text-stone-500">
                       The agent is filling {merchantName}'s checkout with the one-time card. This
                       takes a minute, and a captcha may need clearing in the worker's window.
                     </p>
@@ -304,17 +271,14 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                       href={checkoutUrl}
                       target="_blank"
                       rel="noopener"
-                      className="mt-6 block rounded-full bg-white px-6 py-3 text-center text-[15px] font-medium tracking-[-0.02em] text-black"
+                      className="bg-gradient-brand mt-6 block rounded-full px-6 py-3 text-center text-[15px] font-medium text-white"
                     >
                       Open the Prava tab
                     </a>
                   )}
 
                   {phase === 'address' && (
-                    <AddressForm
-                      email={email}
-                      onSubmit={(address) => void placeOrder(address)}
-                    />
+                    <AddressForm email={email} onSubmit={(address) => void placeOrder(address)} />
                   )}
 
                   {phase === 'placed' && (
@@ -345,46 +309,21 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                   )}
 
                   {error && (
-                    <div className="mt-6 border border-white/15 p-4">
-                      <p className="text-[13px] leading-relaxed text-white/70">{error}</p>
+                    <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                      <p className="text-[13px] leading-relaxed text-stone-600">{error}</p>
                       <a
                         href="/dashboard"
-                        className="mt-3 inline-block text-[13px] font-medium tracking-[-0.02em] text-white uppercase underline underline-offset-4"
+                        className="mt-3 inline-block text-[13px] font-medium text-stone-900 uppercase underline underline-offset-4"
                       >
                         Back to finds
                       </a>
                     </div>
                   )}
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Chrome({ merchant }: { merchant: string }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex items-start justify-between sm:inset-x-8 sm:top-8">
-      <a href="/dashboard" className="pointer-events-auto w-[110px] sm:w-[160px]">
-        <svg viewBox="0 0 355 110" className="w-full">
-          <text x="0" y="75" fill="#ffffff" fontSize="72" fontWeight="500" letterSpacing="-2">
-            SENDIT
-          </text>
-        </svg>
-      </a>
-      <div className="pointer-events-auto flex items-center gap-4 sm:gap-6">
-        <span className="hidden text-[13px] font-medium tracking-[-0.02em] text-white/40 uppercase sm:inline">
-          Paying {merchant}
-        </span>
-        <a
-          href="/dashboard"
-          className="text-[13px] font-medium tracking-[-0.02em] text-white uppercase sm:text-[15px]"
-        >
-          [ close ]
-        </a>
       </div>
     </div>
   );
@@ -400,44 +339,32 @@ function Artwork({
   settled: boolean;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.7, ease: EASE }}
-      className="relative mx-auto w-full max-w-[320px] lg:max-w-none"
-    >
-      <div className="h-[34dvh] w-full overflow-hidden bg-white/5 lg:aspect-[2/3] lg:h-auto">
+    <div className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-2xl border border-stone-200 bg-white lg:max-w-none">
+      <div className="aspect-[4/5] w-full overflow-hidden bg-stone-100">
         <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
       </div>
 
-      <AnimatePresence>
-        {settled && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, ease: EASE }}
-            className="absolute inset-x-0 bottom-0 flex h-24 items-center justify-center bg-white"
-          >
-            <span className="text-[40px] leading-none font-medium tracking-[-0.04em] text-black sm:text-[56px]">
-              bought
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+      {settled && (
+        <div className="absolute inset-x-0 bottom-0 flex h-20 items-center justify-center bg-white/95">
+          <span className="text-gradient text-[32px] leading-none font-semibold tracking-[-0.03em] sm:text-[44px]">
+            bought
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
 function Guardrails({ merchant, priceLabel }: { merchant: string; priceLabel: string }) {
   const lines = [
     <>
-      Works <strong className="font-medium text-white">once</strong>, then it's dead
+      Works <strong className="font-medium text-stone-900">once</strong>, then it's dead
     </>,
     <>
-      Locked to <strong className="font-medium text-white">{merchant}</strong>
+      Locked to <strong className="font-medium text-stone-900">{merchant}</strong>
     </>,
     <>
-      Capped at <strong className="font-medium text-white">{priceLabel}</strong>
+      Capped at <strong className="font-medium text-stone-900">{priceLabel}</strong>
     </>,
     <>Your real card never reaches the merchant, or us</>,
   ];
@@ -445,16 +372,13 @@ function Guardrails({ merchant, priceLabel }: { merchant: string; priceLabel: st
   return (
     <ul className="space-y-2.5">
       {lines.map((line, i) => (
-        <motion.li
+        <li
           key={i}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: EASE, delay: 0.2 + i * 0.08 }}
-          className="flex gap-3 text-[13px] leading-relaxed text-white/50 sm:text-[15px]"
+          className="flex gap-3 text-[13px] leading-relaxed text-stone-500 sm:text-[15px]"
         >
-          <span aria-hidden="true">→</span>
+          <span aria-hidden="true" className="text-gradient font-semibold">→</span>
           <span>{line}</span>
-        </motion.li>
+        </li>
       ))}
     </ul>
   );
@@ -462,21 +386,15 @@ function Guardrails({ merchant, priceLabel }: { merchant: string; priceLabel: st
 
 function BuyButton({ onClick }: { onClick: () => void }) {
   return (
-    <motion.button
+    <button
       type="button"
       onClick={onClick}
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.6, ease: EASE, delay: 0.5 }}
-      style={{ transformOrigin: 'left bottom' }}
-      className="mt-8 flex h-[100px] w-full items-center justify-center rounded-full bg-white sm:h-[130px]"
+      className="bg-gradient-brand mt-8 flex h-[80px] w-full items-center justify-center rounded-full transition-transform hover:scale-[1.01] sm:h-[100px]"
     >
-      <span className="text-[64px] leading-none font-medium tracking-[-0.04em] text-black sm:text-[80px]">
+      <span className="text-[48px] leading-none font-medium tracking-[-0.04em] text-white sm:text-[64px]">
         buy
       </span>
-    </motion.button>
+    </button>
   );
 }
 
@@ -487,76 +405,68 @@ function Timeline({ stage, merchant, phase }: { stage: number; merchant: string;
   const label = (i: number, key: 'active' | 'done') =>
     i === 3 && key === 'done' && phase === 'declined' ? `Declined at ${merchant}` : list[i][key];
 
+  const progress = Math.min(1, stage / list.length);
+
   return (
-    <ol className="border-t border-white/10">
-      {list.map((step, i) => {
-        const done = stage > i;
-        const active = stage === i && !stalled;
-        const blocked = stage === i && stalled;
-        return (
-          <li
-            key={step.done}
-            className="flex items-center gap-4 border-b border-white/10 py-4 sm:py-5"
-          >
-            <StepMark done={done} active={active} blocked={blocked} />
-            <span
-              className={`text-[15px] font-medium tracking-[-0.02em] transition-colors duration-300 sm:text-[20px] ${
-                done
-                  ? 'text-white'
-                  : blocked
-                    ? 'text-amber-300'
-                    : active
-                      ? 'text-white/70'
-                      : 'text-white/25'
-              }`}
+    <div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-stone-100">
+        <div
+          className="bg-gradient-brand h-full rounded-full transition-all duration-500"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+      <ol className="mt-4 border-t border-stone-100">
+        {list.map((step, i) => {
+          const done = stage > i;
+          const active = stage === i && !stalled;
+          const blocked = stage === i && stalled;
+          return (
+            <li
+              key={step.done}
+              className="flex items-center gap-4 border-b border-stone-100 py-4"
             >
-              {done ? label(i, 'done') : label(i, 'active')}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
+              <StepMark done={done} active={active} blocked={blocked} />
+              <span
+                className={`text-[15px] font-medium tracking-[-0.02em] transition-colors duration-300 sm:text-[18px] ${
+                  done
+                    ? 'text-stone-900'
+                    : blocked
+                      ? 'text-amber-600'
+                      : active
+                        ? 'text-stone-700'
+                        : 'text-stone-400'
+                }`}
+              >
+                {done ? label(i, 'done') : label(i, 'active')}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
 function StepMark({ done, active, blocked }: { done: boolean; active: boolean; blocked: boolean }) {
-  const [symbol, setSymbol] = useState(SYMBOLS[0]);
-
-  useEffect(() => {
-    if (!active) return;
-    const id = window.setInterval(
-      () => setSymbol(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]),
-      140,
-    );
-    return () => window.clearInterval(id);
-  }, [active]);
-
   return (
     <span
-      className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-medium transition-colors duration-300 sm:h-[30px] sm:w-[30px] ${
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-medium transition-colors duration-300 ${
         done
-          ? 'border-white bg-white text-black'
+          ? 'bg-gradient-brand border-transparent text-white'
           : blocked
-            ? 'border-amber-300 text-amber-300'
+            ? 'border-amber-400 text-amber-600'
             : active
-              ? 'border-white text-white'
-              : 'border-white/20 text-white/20'
+              ? 'border-stone-900 text-stone-900'
+              : 'border-stone-200 text-stone-300'
       }`}
     >
-      {done ? '✓' : blocked ? '!' : active ? symbol : ''}
-      {active && (
-        <motion.span
-          className="absolute inset-0 rounded-full border border-white"
-          animate={{ scale: [1, 1.6], opacity: [0.6, 0] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeOut' }}
-        />
-      )}
+      {done ? '✓' : blocked ? '!' : ''}
     </span>
   );
 }
 
 const FIELD =
-  'w-full rounded-full border border-white/20 bg-transparent px-4 py-2.5 text-[13px] tracking-[-0.02em] text-white placeholder:text-white/30 focus:border-white focus:outline-none';
+  'w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 text-[13px] tracking-[-0.02em] text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none';
 
 function AddressForm({
   email,
@@ -566,10 +476,7 @@ function AddressForm({
   onSubmit: (shipping: Shipping) => void;
 }) {
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: EASE }}
+    <form
       className="mt-6"
       onSubmit={(event) => {
         event.preventDefault();
@@ -577,7 +484,7 @@ function AddressForm({
         onSubmit(data as unknown as Shipping);
       }}
     >
-      <p className="text-[11px] font-medium tracking-[-0.02em] text-white/40 uppercase">
+      <p className="text-[11px] font-medium tracking-wide text-stone-500 uppercase">
         Where should it ship? Saved for next time.
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -590,14 +497,14 @@ function AddressForm({
         <input name="phone" placeholder="Phone" className={FIELD} />
         <input name="countryCode" required defaultValue="US" placeholder="Country" className={`col-span-2 ${FIELD}`} />
       </div>
-      <p className="mt-3 text-[11px] text-white/30">Confirmation goes to {email}</p>
+      <p className="mt-3 text-[11px] text-stone-400">Confirmation goes to {email}</p>
       <button
         type="submit"
-        className="mt-4 w-full rounded-full bg-white px-6 py-4 text-[15px] font-medium tracking-[-0.02em] text-black sm:text-[20px]"
+        className="bg-gradient-brand mt-4 w-full rounded-full px-6 py-3.5 text-[15px] font-medium text-white transition-transform hover:scale-[1.01]"
       >
         Buy it for me
       </button>
-    </motion.form>
+    </form>
   );
 }
 
@@ -613,31 +520,39 @@ function Outcome({
   tone?: 'white' | 'amber';
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: EASE }}
-      className={`mt-6 border p-5 ${tone === 'amber' ? 'border-amber-300/40' : 'border-white/15'}`}
+    <div
+      className={`mt-6 rounded-2xl border p-5 ${
+        tone === 'amber' ? 'border-amber-300 bg-amber-50' : 'border-stone-200 bg-stone-50'
+      }`}
     >
+      <span
+        className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase ${
+          tone === 'amber'
+            ? 'border-amber-300 text-amber-700'
+            : 'bg-gradient-brand border-transparent text-white'
+        }`}
+      >
+        {tone === 'amber' ? 'Declined' : 'Placed'}
+      </span>
       <p
-        className={`text-[20px] leading-none font-medium tracking-[-0.04em] ${
-          tone === 'amber' ? 'text-amber-300' : 'text-white'
+        className={`mt-3 text-[20px] leading-none font-medium tracking-[-0.03em] ${
+          tone === 'amber' ? 'text-amber-700' : 'text-stone-900'
         }`}
       >
         {heading}
       </p>
-      <p className="mt-3 text-[13px] leading-relaxed text-white/50">{body}</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-stone-600">{body}</p>
       {link && (
         <a
           href={link.href}
           target="_blank"
           rel="noopener nofollow"
-          className="mt-4 block rounded-full bg-white px-6 py-3 text-center text-[15px] font-medium tracking-[-0.02em] text-black"
+          className="mt-4 block rounded-full border border-stone-300 px-6 py-3 text-center text-[15px] font-medium text-stone-700 transition-colors hover:border-stone-900"
         >
           {link.label}
         </a>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -663,44 +578,39 @@ function ManualSettle({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: EASE }}
-      className="mt-6"
-    >
-      {note && <p className="text-[13px] leading-relaxed text-amber-300/80">{note}</p>}
-      <p className="mt-3 text-[13px] leading-relaxed text-white/50">
+    <div className="mt-6">
+      {note && <p className="text-[13px] leading-relaxed text-amber-700">{note}</p>}
+      <p className="mt-3 text-[13px] leading-relaxed text-stone-500">
         The card is minted and still valid. Finish at {merchant} yourself, then tell us how it went —
         Prava needs the outcome to close the session.
       </p>
 
-      <div className="mt-5 border border-white/15 bg-white/[0.04] p-5">
+      <div className="mt-5 rounded-2xl border border-stone-200 bg-stone-50 p-5">
         <div className="flex items-baseline justify-between">
-          <p className="text-[11px] font-medium tracking-[-0.02em] text-white/40 uppercase">
+          <p className="text-[11px] font-medium tracking-wide text-stone-500 uppercase">
             One-time card
           </p>
           <button
             type="button"
             onClick={copy}
-            className="text-[11px] font-medium tracking-[-0.02em] text-white uppercase underline underline-offset-4"
+            className="text-[11px] font-medium text-stone-900 uppercase underline underline-offset-4"
           >
             {copied ? 'Copied' : 'Copy number'}
           </button>
         </div>
 
-        <p className="mt-4 font-mono text-[20px] tracking-[0.08em] text-white sm:text-[26px]">
+        <p className="mt-4 font-mono text-[20px] tracking-[0.08em] text-stone-900 sm:text-[26px]">
           {card.token.replace(/(.{4})/g, '$1 ').trim()}
         </p>
 
-        <dl className="mt-4 flex gap-8 font-mono text-[13px] text-white/60">
+        <dl className="mt-4 flex gap-8 font-mono text-[13px] text-stone-600">
           <div>
-            <dt className="text-[10px] tracking-[-0.02em] text-white/30 uppercase">CVV</dt>
-            <dd className="mt-0.5 text-white">{card.dynamicCvv}</dd>
+            <dt className="text-[10px] tracking-wide text-stone-400 uppercase">CVV</dt>
+            <dd className="mt-0.5 text-stone-900">{card.dynamicCvv}</dd>
           </div>
           <div>
-            <dt className="text-[10px] tracking-[-0.02em] text-white/30 uppercase">Expiry</dt>
-            <dd className="mt-0.5 text-white">
+            <dt className="text-[10px] tracking-wide text-stone-400 uppercase">Expiry</dt>
+            <dd className="mt-0.5 text-stone-900">
               {card.expiryMonth}/{card.expiryYear}
             </dd>
           </div>
@@ -711,7 +621,7 @@ function ManualSettle({
         href={productUrl}
         target="_blank"
         rel="noopener nofollow"
-        className="mt-4 block rounded-full bg-white px-6 py-4 text-center text-[15px] font-medium tracking-[-0.02em] text-black sm:text-[20px]"
+        className="bg-gradient-brand mt-4 block rounded-full px-6 py-4 text-center text-[15px] font-medium text-white sm:text-[20px]"
       >
         Finish at {merchant}
       </a>
@@ -720,18 +630,18 @@ function ManualSettle({
         <button
           type="button"
           onClick={() => onReport('APPROVED')}
-          className="flex-1 rounded-full border border-white/20 px-4 py-3 text-[13px] font-medium tracking-[-0.02em] text-white/70 uppercase hover:border-white hover:text-white"
+          className="flex-1 rounded-full border border-stone-300 px-4 py-3 text-[13px] font-medium text-stone-700 uppercase transition-colors hover:border-stone-900"
         >
           It went through
         </button>
         <button
           type="button"
           onClick={() => onReport('DECLINED')}
-          className="flex-1 rounded-full border border-white/20 px-4 py-3 text-[13px] font-medium tracking-[-0.02em] text-white/70 uppercase hover:border-white hover:text-white"
+          className="flex-1 rounded-full border border-stone-300 px-4 py-3 text-[13px] font-medium text-stone-700 uppercase transition-colors hover:border-stone-900"
         >
           It failed
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }

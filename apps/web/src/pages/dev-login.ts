@@ -20,7 +20,6 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const handle = String(form.get('instagram') ?? '').trim();
 
   if (!email) return new Response('email required', { status: 400 });
-  if (!handle) return new Response('instagram handle required', { status: 400 });
 
   // WhatsApp-first deployments may have no Instagram token at all — skip
   // resolution rather than 502, so email-only sign-in still works.

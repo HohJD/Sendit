@@ -1,5 +1,6 @@
 ---
 import '../../styles/global.css';
+import Wordmark from '../../components/Wordmark.astro';
 import { CheckoutFlow } from '../../components/checkout/CheckoutFlow.tsx';
 import { db, items, shares, users, checkouts } from '@prava/db';
 import { createSession } from '@prava/worker/payments/prava';
@@ -91,7 +92,7 @@ const priceLabel =
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="application-name" content="sendit" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#fafaf9" />
     <meta property="og:site_name" content="sendit" />
     <meta property="og:image" content="/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -101,7 +102,18 @@ const priceLabel =
       rel="stylesheet"
     />
   </head>
-  <body class="font-display min-h-dvh bg-black text-white antialiased">
+  <body class="font-display min-h-dvh bg-[#fafaf9] text-stone-900 antialiased">
+    <header class="sticky top-0 z-40 border-b border-stone-200 bg-white/80 backdrop-blur">
+      <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-8">
+        <Wordmark size="md" href="/dashboard" />
+        <a
+          href="/dashboard"
+          class="rounded-full border border-stone-300 px-4 py-1.5 text-[12px] font-medium text-stone-700 transition-colors hover:border-stone-900"
+        >
+          Back to finds
+        </a>
+      </div>
+    </header>
     {session && (
         <CheckoutFlow
           client:load
@@ -123,17 +135,17 @@ const priceLabel =
 
     {
       error && (
-        <div class="mx-auto flex min-h-dvh max-w-xl flex-col justify-center px-4 sm:px-8">
-          <p class="text-[11px] font-medium tracking-[-0.02em] text-white/40 uppercase sm:text-[13px]">
+        <div class="mx-auto flex max-w-xl flex-col justify-center px-4 py-16 sm:px-8 sm:py-24">
+          <p class="text-[12px] font-medium tracking-wide text-stone-500 uppercase">
             Checkout could not start
           </p>
-          <h1 class="mt-3 text-[30px] leading-[0.95] font-medium tracking-[-0.04em] sm:text-[44px]">
+          <h1 class="mt-3 text-[30px] leading-[0.95] font-medium tracking-[-0.03em] sm:text-[44px]">
             {item.title}
           </h1>
-          <p class="mt-4 text-[15px] leading-relaxed text-white/60">{error}</p>
+          <p class="mt-4 text-[15px] leading-relaxed text-stone-600">{error}</p>
           <a
             href="/dashboard"
-            class="mt-8 block rounded-full bg-white px-6 py-4 text-center text-[15px] font-medium tracking-[-0.02em] text-black sm:text-[20px]"
+            class="mt-8 block rounded-full border border-stone-300 px-6 py-3.5 text-center text-[15px] font-medium text-stone-700 transition-colors hover:border-stone-900"
           >
             Back to finds
           </a>
