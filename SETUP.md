@@ -86,6 +86,10 @@ pnpm db:migrate        # applies packages/db/migrations
 # regenerate after schema edits: pnpm db:generate
 ```
 
+Set `DATABASE_URL_DIRECT` to point migrations at a direct (non-pooled)
+connection — it takes precedence over `DATABASE_URL`, so runtime can use a
+Supabase/Neon transaction pooler while drizzle still gets a real session.
+
 ## Run
 
 ```bash
@@ -166,3 +170,21 @@ curl -s -X POST http://localhost:8787/webhooks/whatsapp -H "x-hub-signature-256:
 
 Expect a `shares` row (`input_kind='text'`), three canned `items`, and a
 logged outbound-send failure carrying the full message body.
+
+## Deploy (Vercel)
+
+Dashboard deploys to Vercel; the worker stays self-hosted (ngrok or a real
+host) — Vercel needs `CHECKOUT_EXECUTOR_URL` to reach it. The Supabase
+pooled URL goes in `PROD_DATABASE_URL` and the direct URL in
+`PROD_DATABASE_URL_DIRECT` (both in the local `.env`; never committed).
+
+```bash
+cd apps/web && vercel link --yes --project sendit   # once
+./scripts/vercel-migrate.sh                          # migrate the prod DB
+./scripts/vercel-env.sh                              # push env vars to Vercel
+cd apps/web && vercel --prod                         # deploy
+```
+
+After the first deploy, set `WEB_ORIGIN` in `.env` to the Vercel URL so
+WhatsApp checkout links point at the deployed dashboard, and update
+`PRAVA_CALLBACK_URL` / `RETURN_ORIGINS` to the https endpoints.
