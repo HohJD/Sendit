@@ -40,7 +40,7 @@ async function main() {
   console.log('--- Resolver spike ---\n');
   console.log('Identifying...');
 
-  const result = await resolve({ imageBase64, mediaType, caption });
+  const result = await resolve({ media: { imageBase64, mediaType, caption } });
 
   console.log('\nSignal:');
   console.log(`  brand:       ${result.signal.brand ?? '(none)'}`);

@@ -5,6 +5,8 @@
   "private": true,
   "exports": {
     "./resolver/catalog": "./src/resolver/catalog.ts",
+    "./channels": "./src/channels/index.ts",
+    "./conversation/link": "./src/conversation/link.ts",
     "./payments/prava": "./src/payments/prava.ts",
     "./prava-mcp/oauth": "./src/prava-mcp/oauth.ts",
     "./prava-mcp/client": "./src/prava-mcp/client.ts",

@@ -50,7 +50,7 @@ function getClient(): OpenAI {
       // rather than reading globalThis.fetch per call. This thin wrapper defers that lookup to
       // call time instead, so a test-mocked globalThis.fetch is actually honored — without it,
       // requests silently go out over the real network no matter what a test overrides.
-      fetch: (url, init) => globalThis.fetch(url, init),
+      fetch: (url, init) => globalThis.fetch(url as never, init as never) as never,
     });
   }
   return client;

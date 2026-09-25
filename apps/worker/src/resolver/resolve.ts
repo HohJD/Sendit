@@ -1,6 +1,8 @@
 import { identify, type ProductSignal } from './identify.ts';
 import type { CatalogCandidate } from './catalog.ts';
 import { searchByText } from './serpapi.ts';
+import { demoEnabled, demoResolve } from './demo.ts';
+import type { ShareMedia } from './media.ts';
 
 export interface ResolveResult {
   signal: ProductSignal;
@@ -14,13 +16,34 @@ export interface ResolveResult {
  * search_query identify() produces is already built to stand on its own as a
  * shopping-engine query. Catalog MCP (catalog.ts) is the intended backend but
  * needs client credentials we don't have; serpapi.ts returns the same shape.
+ *
+ * A text-only share skips identify entirely — the sender's own words already
+ * are the query. And in demo mode the whole pipeline short-circuits to canned
+ * candidates so the chat flow works without vision or search keys.
  */
 export async function resolve(params: {
-  imageBase64: string;
-  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
-  caption?: string;
+  media: ShareMedia | null;
+  text?: string;
 }): Promise<ResolveResult> {
-  const signal = await identify(params);
+  if (demoEnabled()) {
+    return demoResolve({ text: params.text, caption: params.media?.caption });
+  }
+
+  let signal: ProductSignal;
+  if (params.media) {
+    signal = await identify(params.media);
+  } else {
+    if (!params.text) throw new Error('resolve: neither media nor text supplied');
+    signal = {
+      brand: null,
+      productType: params.text,
+      color: null,
+      distinguishingFeatures: [],
+      searchQuery: params.text,
+      confidence: 'medium',
+    };
+  }
+
   let candidates = await searchByText(signal.searchQuery);
 
   // A very specific query can match nothing at all. Retry once on the coarse

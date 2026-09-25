@@ -2,15 +2,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { timingSafeEqual } from 'node:crypto';
 import { executeCheckout, type CardCredentials, type ShippingDetails } from '../checkout/shopify.ts';
 import { verifyHandshake, verifySignature } from './signature.ts';
-import { parseInstagram } from './instagram.ts';
-import { parseWhatsApp } from './whatsapp.ts';
-import { recordShares } from './store.ts';
-import type { NormalizedShare } from './types.ts';
+import { channelForPath, type ChannelAdapter } from '../channels/index.ts';
+import { createHandler } from '../conversation/handler.ts';
+import { recordShare, resolveUserId } from './store.ts';
+import { startCheckout } from '../conversation/checkout.ts';
 
-const ROUTES: Record<string, (body: unknown) => NormalizedShare[]> = {
-  '/webhooks/instagram': parseInstagram,
-  '/webhooks/whatsapp': parseWhatsApp,
-};
+const handleInbound = createHandler({ recordShare, resolveUserId, startCheckout });
 
 function readRawBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -91,7 +88,7 @@ async function runCheckout(req: IncomingMessage, res: ServerResponse): Promise<v
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost');
-  const parse = ROUTES[url.pathname];
+  const adapter = channelForPath(url.pathname);
 
   if (url.pathname === '/health') return send(res, 200, 'ok');
 
@@ -112,15 +109,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const site = requested && allowed.includes(requested) ? requested : allowed[0];
 
     res.writeHead(302, { location: `${site}/checkouts` });
-    return res.end();
+    res.end();
+    return;
   }
   if (url.pathname === '/execute' && req.method === 'POST') return runCheckout(req, res);
 
-  if (!parse) return send(res, 404, 'not found');
+  if (!adapter) return send(res, 404, 'not found');
 
   if (req.method === 'GET') {
-    const challenge = verifyHandshake(url.searchParams, requireEnv('META_VERIFY_TOKEN'));
-    return challenge ? send(res, 200, challenge) : send(res, 403, 'forbidden');
+    return handleHandshake(url, adapter, res);
   }
 
   if (req.method !== 'POST') return send(res, 405, 'method not allowed');
@@ -128,13 +125,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const rawBody = await readRawBody(req);
   const signature = req.headers['x-hub-signature-256'];
 
+  // One Meta app signs both the Instagram and WhatsApp products, so the same
+  // app secret verifies either channel's deliveries.
   if (!verifySignature(rawBody, asHeader(signature), requireEnv('META_APP_SECRET'))) {
     return send(res, 401, 'bad signature');
   }
 
-  let parsed: NormalizedShare[];
+  let inbound: ReturnType<ChannelAdapter['parseWebhook']>;
   try {
-    parsed = parse(JSON.parse(rawBody.toString('utf8')));
+    inbound = adapter.parseWebhook(JSON.parse(rawBody.toString('utf8')));
   } catch {
     // Malformed body: acknowledge so Meta stops retrying a delivery that will
     // never succeed, and log it for inspection.
@@ -142,21 +141,36 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     return send(res, 200, 'ok');
   }
 
-  if (parsed.length === 0) return send(res, 200, 'ok');
+  if (inbound.length === 0) return send(res, 200, 'ok');
 
   // Persist before acknowledging. It costs a couple of inserts inside Meta's
   // timeout, but a DB failure then surfaces as a retryable 500 instead of a
   // share that is lost while Meta believes it was delivered. Retrying is safe:
-  // the shares_dedupe index makes recordShares idempotent.
+  // the shares_dedupe index makes recording idempotent. Outbound replies are
+  // fire-and-forget inside the handler — they never affect the ack.
   try {
-    const queued = await recordShares(parsed);
-    console.log(`intake: ${url.pathname} → ${queued}/${parsed.length} queued`);
+    for (const message of inbound) {
+      await handleInbound(adapter, message);
+    }
+    console.log(`intake: ${url.pathname} → ${inbound.length} message(s) handled`);
   } catch (err) {
     console.error('intake: failed to record shares', err);
     return send(res, 500, 'error');
   }
 
   send(res, 200, 'ok');
+}
+
+function handleHandshake(url: URL, adapter: ChannelAdapter, res: ServerResponse): void {
+  let token: string;
+  try {
+    token = adapter.verifyToken();
+  } catch (err) {
+    console.error('intake:', err instanceof Error ? err.message : err);
+    return send(res, 500, 'verify token not configured');
+  }
+  const challenge = verifyHandshake(url.searchParams, token);
+  return challenge ? send(res, 200, challenge) : send(res, 403, 'forbidden');
 }
 
 function asHeader(value: string | string[] | undefined): string | undefined {

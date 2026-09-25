@@ -6,7 +6,7 @@
 
 ### DM a reel. Get the product. Buy it without ever leaving the chat.
 
-*You send a post to an Instagram account. An agent identifies what's in it, finds it on real storefronts, and checks out with a [Prava](https://prava.space) one-time card that only works once, at that merchant, for that amount.*
+*You message a WhatsApp number (or an Instagram account) — a link, a screenshot, or just "find me this jacket". An agent identifies the product, finds it on real storefronts, and checks out with a [Prava](https://prava.space) one-time card that only works once, at that merchant, for that amount.*
 
 [![Astro](https://img.shields.io/badge/Astro-7-BC52EE?logo=astro&logoColor=white)](https://astro.build)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -154,15 +154,19 @@ CHECKOUT_HEADLESS=false pnpm worker      # visible browser, so a human can clear
 
 ```bash
 DATABASE_URL=                # Postgres — local, Neon, or Supabase
-SESSION_SECRET=              # signs the session cookie
+SESSION_SECRET=              # signs the session cookie and chat-login links
 
+DEMO_MODE=true               # canned matches; also auto-triggers on missing keys
 OPENAI_API_KEY=              # vision identify
 IDENTIFY_MODEL=gpt-4.1-mini  # bare id → OpenAI; "vendor/model" → NVIDIA NIM
 SERPAPI_API_KEY=             # Google Shopping discovery
 
-META_APP_SECRET=             # webhook signature
-META_VERIFY_TOKEN=           # webhook handshake
-IG_PAGE_ACCESS_TOKEN=        # handle → IGSID at sign-in
+WHATSAPP_TOKEN=              # Cloud API bearer (temporary or System User)
+WHATSAPP_PHONE_NUMBER_ID=    # the business number's ID
+WHATSAPP_VERIFY_TOKEN=       # webhook handshake — any string you choose
+META_APP_SECRET=             # webhook signature (one Meta app, both channels)
+META_VERIFY_TOKEN=           # Instagram webhook handshake
+IG_PAGE_ACCESS_TOKEN=        # Instagram DMs + handle → IGSID at sign-in
 
 PRAVA_SECRET_KEY=            # sandbox keys work instantly
 PRAVA_API_BASE_URL=https://sandbox.api.prava.space
@@ -171,7 +175,10 @@ PRAVA_CALLBACK_URL=          # https — where Prava returns the cardholder
 CHECKOUT_SHARED_SECRET=      # guards /execute once the worker is public
 CHECKOUT_EXECUTOR_URL=       # where the dashboard reaches the agent
 RETURN_ORIGINS=              # front ends the return route may bounce back to
+WEB_ORIGIN=                  # dashboard URL used to build the chat checkout link
 ```
+
+Full setup — Postgres, tunnels, WhatsApp Cloud API config, demo mode — is in [SETUP.md](SETUP.md).
 
 ### Deploying
 

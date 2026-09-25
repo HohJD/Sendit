@@ -1,6 +1,22 @@
-import { db, users, identities, shares } from '@prava/db';
+import { db, users, identities, shares, items } from '@prava/db';
 import { and, eq } from 'drizzle-orm';
-import type { NormalizedShare, IntakePlatform } from './types.ts';
+import type { ChannelName } from '../channels/types.ts';
+
+/**
+ * One share to persist, normalised by the conversation handler rather than a
+ * platform parser — by this point the platform-specific shape is gone.
+ */
+export interface NewShare {
+  platform: ChannelName;
+  externalId: string;
+  messageId: string;
+  inputKind: 'link' | 'image' | 'text';
+  /** '' for image/text shares — the dedupe index keys on it. */
+  sourceUrl: string;
+  inputText?: string;
+  mediaRef?: string;
+  raw: unknown;
+}
 
 /**
  * Map a platform handle to a user, creating one if this is a first contact.
@@ -11,7 +27,7 @@ import type { NormalizedShare, IntakePlatform } from './types.ts';
  * accumulate against a stable user row rather than being dropped.
  */
 export async function resolveUserId(
-  platform: IntakePlatform,
+  platform: ChannelName,
   externalId: string,
 ): Promise<string> {
   const existing = await db
@@ -42,28 +58,47 @@ export async function resolveUserId(
   return settled[0]?.userId ?? user.id;
 }
 
-/** Returns the number of shares actually queued (duplicates are skipped). */
-export async function recordShares(list: NormalizedShare[]): Promise<number> {
-  let queued = 0;
+/**
+ * Insert one share. Returns true when a row was actually queued — false when
+ * the dedupe index swallowed it (Meta retries deliveries), which tells the
+ * caller not to ack a message the user already got a reply for.
+ */
+export async function recordShare(share: NewShare): Promise<boolean> {
+  const userId = await resolveUserId(share.platform, share.externalId);
 
-  for (const share of list) {
-    const userId = await resolveUserId(share.platform, share.externalId);
+  const inserted = await db
+    .insert(shares)
+    .values({
+      userId,
+      platform: share.platform,
+      sourceUrl: share.sourceUrl,
+      inputKind: share.inputKind,
+      inputText: share.inputText ?? null,
+      mediaRef: share.mediaRef ?? null,
+      messageId: share.messageId,
+      rawPayload: share.raw as object,
+      status: 'queued',
+    })
+    .onConflictDoNothing()
+    .returning({ id: shares.id });
 
-    const inserted = await db
-      .insert(shares)
-      .values({
-        userId,
-        platform: share.platform,
-        sourceUrl: share.sourceUrl,
-        messageId: share.messageId,
-        rawPayload: share.raw as object,
-        status: 'queued',
-      })
-      .onConflictDoNothing()
-      .returning({ id: shares.id });
+  return inserted.length > 0;
+}
 
-    if (inserted.length) queued += 1;
-  }
+/** External handle for a user on a channel — where outbound replies go. */
+export async function lookupExternalId(
+  userId: string,
+  platform: ChannelName,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ externalId: identities.externalId })
+    .from(identities)
+    .where(and(eq(identities.userId, userId), eq(identities.platform, platform)))
+    .limit(1);
+  return row?.externalId ?? null;
+}
 
-  return queued;
+export async function loadItem(itemId: string) {
+  const [item] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
+  return item ?? null;
 }

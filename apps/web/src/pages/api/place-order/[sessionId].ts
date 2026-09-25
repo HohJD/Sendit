@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
-import { db, items, checkouts, users, type ShippingAddress } from '@prava/db';
+import { db, items, checkouts, users, identities, type ShippingAddress } from '@prava/db';
 import { and, eq } from 'drizzle-orm';
 import { getPaymentResult, reportStatus } from '@prava/worker/payments/prava';
+import { getChannel } from '@prava/worker/channels';
 
 const EXECUTOR = process.env.CHECKOUT_EXECUTOR_URL ?? 'http://127.0.0.1:8787/execute';
 
@@ -100,6 +101,13 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     .set({ status: result.status, outcome: result.message, settledAt: new Date() })
     .where(eq(checkouts.id, checkout.id));
 
+  // Report back to the chat that sent the share — the checkout page may be a
+  // phone browser opened from the link, but the user lives in the DM thread.
+  // Fire-and-forget: a dead chat token must not affect the order's outcome.
+  void notifyChat(locals.userId, item.merchant, result).catch((err) =>
+    console.error('chat notification failed', err),
+  );
+
   // Only a gateway verdict is worth settling; a driver failure never reached one.
   // No processor codes are sent: response_code is capped at 2 characters and we
   // have nothing authoritative to put in it.
@@ -115,3 +123,33 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   return Response.json(result);
 };
+
+/**
+ * Where the order came from: prefer WhatsApp (primary channel), fall back to
+ * Instagram. A user with no chat identity (dashboard sign-in only) just gets
+ * no message.
+ */
+async function notifyChat(
+  userId: string,
+  merchant: string | null,
+  result: ExecutorResult,
+): Promise<void> {
+  const rows = await db
+    .select({ platform: identities.platform, externalId: identities.externalId })
+    .from(identities)
+    .where(eq(identities.userId, userId));
+
+  const identity =
+    rows.find((r) => r.platform === 'whatsapp') ?? rows.find((r) => r.platform === 'instagram');
+  if (!identity) return;
+
+  const name = merchant ?? 'the store';
+  const text =
+    result.status === 'placed'
+      ? `Order placed (sandbox — no real money moved). ${name} said: ${result.message}`
+      : result.status === 'declined'
+        ? `The store's payment gateway declined the sandbox card — that's expected with Prava test cards and proves the card reached a real processor. Outcome: ${result.message}`
+        : `Couldn't complete the checkout: ${result.message}`;
+
+  await getChannel(identity.platform).sendText(identity.externalId, text);
+}

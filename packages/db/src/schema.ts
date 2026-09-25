@@ -20,6 +20,12 @@ export const shareStatus = pgEnum('share_status', [
   'failed',
 ]);
 
+/**
+ * What the sender actually gave us: a link to scrape, an image upload (media
+ * ref lives on the platform), or a plain-text product request.
+ */
+export const inputKind = pgEnum('input_kind', ['link', 'image', 'text']);
+
 /** How well the reel resolved. Drives which tier of UI the share renders as. */
 export const resolution = pgEnum('resolution', ['exact', 'similar', 'none']);
 
@@ -88,6 +94,19 @@ export const shares = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     platform: platform('platform').notNull(),
+    /**
+     * What kind of input produced this share. Rows predating the column are
+     * 'link' — accurate, since links were the only accepted intake.
+     */
+    inputKind: inputKind('input_kind').notNull().default('link'),
+    /** Caption, or the sender's own words for text/image shares. */
+    inputText: text('input_text'),
+    /**
+     * Platform-side media handle — a WhatsApp media id or an Instagram CDN
+     * url — resolved to bytes by the resolver via the channel adapter.
+     */
+    mediaRef: text('media_ref'),
+    /** '' for image/text shares so shares_dedupe still dedupes per message. */
     sourceUrl: text('source_url').notNull(),
     /** Platform message id. Meta retries webhook deliveries, so this is the idempotency key. */
     messageId: text('message_id'),

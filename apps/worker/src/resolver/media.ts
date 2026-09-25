@@ -1,3 +1,5 @@
+import { getChannel, type ChannelName } from '../channels/index.ts';
+
 export interface ShareMedia {
   imageBase64: string;
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
@@ -16,6 +18,18 @@ const CRAWLER_UA = 'facebookexternalhit/1.1';
 
 const OG_IMAGE = /<meta property="og:image" content="([^"]+)"/;
 
+/**
+ * The link pointed somewhere we can't read — private post, removed page, or
+ * the CDN rejected the download. Named so the loop can tell the sender apart
+ * from a genuine resolver failure.
+ */
+export class UnreadableLinkError extends Error {
+  constructor(public readonly url: string) {
+    super(`unreadable link: ${url}`);
+    this.name = 'UnreadableLinkError';
+  }
+}
+
 interface RawEvent {
   message?: {
     text?: string;
@@ -25,9 +39,15 @@ interface RawEvent {
 
 async function download(
   url: string,
+  onFailure: (err: Error) => Error,
 ): Promise<{ imageBase64: string; mediaType: ShareMedia['mediaType'] }> {
-  const res = await fetch(url, { headers: { 'user-agent': CRAWLER_UA } });
-  if (!res.ok) throw new Error(`media fetch failed: ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { 'user-agent': CRAWLER_UA } });
+  } catch (err) {
+    throw onFailure(err as Error);
+  }
+  if (!res.ok) throw onFailure(new Error(`media fetch failed: ${res.status}`));
 
   const contentType = (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
   const mediaType = MEDIA_TYPES[contentType];
@@ -37,56 +57,84 @@ async function download(
 }
 
 /**
- * Instagram's own reel page carries the keyframe as an og:image, which is
- * enough to identify the product without oEmbed access or app review. The
- * webhook itself only gives a permalink and a reel_video_id, neither of which
- * is fetchable, so this scrape is the only route to reel pixels we have.
+ * The og:image off a public page. Instagram's own reel pages carry the
+ * keyframe there; most other storefront/feed pages do too. Crawler UA is the
+ * whole trick — served to crawlers only.
  */
-async function reelThumbnail(permalink: string): Promise<string> {
-  const res = await fetch(permalink, { headers: { 'user-agent': CRAWLER_UA } });
-  if (!res.ok) throw new Error(`reel page fetch failed: ${res.status}`);
+async function ogImage(url: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { 'user-agent': CRAWLER_UA } });
+  } catch {
+    throw new UnreadableLinkError(url);
+  }
+  if (!res.ok) throw new UnreadableLinkError(url);
 
   const match = OG_IMAGE.exec(await res.text());
-  if (!match) throw new Error('reel page had no og:image — it may be private or removed');
+  if (!match) throw new UnreadableLinkError(url);
 
   return match[1].replace(/&amp;/g, '&');
 }
 
 /**
- * Pull a resolvable image out of a share.
+ * Pull a resolvable image out of a share — or null for a text request, which
+ * has nothing to look at.
  *
- * Photo DMs carry a direct CDN URL in the payload. Reels carry only a
- * permalink, so their keyframe is scraped from the public page. CDN URLs are
- * signed and expire, which is why the loop downloads on a short poll rather
- * than lazily at render time.
+ * 'image' shares hold a platform media ref (a WhatsApp media id or an
+ * Instagram CDN url) resolved through the channel adapter. 'link' shares
+ * scrape the og:image of whatever page the link points at — Instagram reel
+ * pages and anything else alike. CDN URLs are signed and expire, which is why
+ * the loop downloads on a short poll rather than lazily at render time.
  */
 export async function acquireMedia(share: {
   rawPayload: unknown;
   sourceUrl: string;
-}): Promise<ShareMedia> {
+  inputKind?: string;
+  inputText?: string | null;
+  mediaRef?: string | null;
+  platform: string;
+}): Promise<ShareMedia | null> {
+  const kind = share.inputKind ?? 'link';
+
+  if (kind === 'text') return null;
+
+  if (kind === 'image') {
+    if (!share.mediaRef) throw new Error('image share has no media ref');
+    const { buffer, mimeType } = await getChannel(share.platform as ChannelName).fetchMedia(share.mediaRef);
+    const mediaType = MEDIA_TYPES[mimeType.toLowerCase()];
+    if (!mediaType) throw new Error(`unsupported media type: ${mimeType || 'unknown'}`);
+    return {
+      imageBase64: buffer.toString('base64'),
+      mediaType,
+      caption: share.inputText ?? undefined,
+    };
+  }
+
   const event = share.rawPayload as RawEvent | null;
   const attachments = event?.message?.attachments ?? [];
 
-  // Photos and shared feed posts both carry a directly fetchable CDN image.
+  // Rows from before inputKind existed still carry attachments in the raw
+  // payload — photos and shared feed posts have a directly fetchable CDN image.
   const direct = attachments.find(
     (a) => (a.type === 'image' || a.type === 'ig_post') && a.payload?.url,
   );
   if (direct?.payload?.url) {
     return {
-      ...(await download(direct.payload.url)),
+      ...(await download(direct.payload.url, () => new UnreadableLinkError(share.sourceUrl))),
       // A shared post carries the original caption; a photo carries whatever
       // the sender typed alongside it.
-      caption: direct.payload.title ?? event?.message?.text,
+      caption: direct.payload.title ?? share.inputText ?? event?.message?.text,
     };
   }
 
-  if (/^https?:\/\/(www\.)?instagram\.com\/(reel|reels|p)\//i.test(share.sourceUrl)) {
+  if (/^https?:\/\//i.test(share.sourceUrl)) {
     const reel = attachments.find((a) => a.type === 'ig_reel' || a.type === 'reel');
+    const imageUrl = await ogImage(share.sourceUrl);
     return {
-      ...(await download(await reelThumbnail(share.sourceUrl))),
-      caption: reel?.payload?.title ?? event?.message?.text,
+      ...(await download(imageUrl, () => new UnreadableLinkError(share.sourceUrl))),
+      caption: reel?.payload?.title ?? share.inputText ?? event?.message?.text,
     };
   }
 
-  throw new Error(`no resolvable media for ${share.sourceUrl}`);
+  throw new UnreadableLinkError(share.sourceUrl || '(none)');
 }

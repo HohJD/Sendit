@@ -243,6 +243,9 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: EASE }}
           >
+            <p className="mb-4 inline-block w-fit border border-white/15 px-3 py-1.5 text-[11px] font-medium tracking-[-0.02em] text-white/50 uppercase sm:text-[12px]">
+              Sandbox — test purchase, no real money
+            </p>
             <p className="text-[11px] font-medium tracking-[-0.02em] text-white/40 uppercase sm:text-[13px]">
               {merchantName}
             </p>

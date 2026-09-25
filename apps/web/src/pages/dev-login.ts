@@ -22,11 +22,15 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   if (!email) return new Response('email required', { status: 400 });
   if (!handle) return new Response('instagram handle required', { status: 400 });
 
-  let igsid: string | null;
-  try {
-    igsid = await resolveIgsid(handle);
-  } catch (err) {
-    return new Response(err instanceof Error ? err.message : String(err), { status: 502 });
+  // WhatsApp-first deployments may have no Instagram token at all — skip
+  // resolution rather than 502, so email-only sign-in still works.
+  let igsid: string | null = null;
+  if (process.env.IG_PAGE_ACCESS_TOKEN) {
+    try {
+      igsid = await resolveIgsid(handle);
+    } catch (err) {
+      return new Response(err instanceof Error ? err.message : String(err), { status: 502 });
+    }
   }
 
   const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
