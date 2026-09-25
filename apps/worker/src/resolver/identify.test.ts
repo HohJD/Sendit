@@ -7,7 +7,7 @@ import { identify, __resetIdentifyClientForTests } from './identify.ts';
 const TINY_JPEG_BASE64 =
   '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
 
-let calls: Array<{ init: RequestInit }>;
+let calls: Array<{ url: string; init: RequestInit }>;
 let responses: Array<{ status: number; body: unknown }>;
 
 beforeEach(() => {
@@ -16,10 +16,11 @@ beforeEach(() => {
   __resetIdentifyClientForTests();
   process.env.NVIDIA_API_KEY = 'nvapi-test';
   delete process.env.IDENTIFY_MODEL;
+  delete process.env.XAI_API_KEY;
 
   // @ts-expect-error — test double; the OpenAI SDK uses global fetch under Node 18+
-  globalThis.fetch = async (_url: string, init: RequestInit) => {
-    calls.push({ init });
+  globalThis.fetch = async (url: string, init: RequestInit) => {
+    calls.push({ url: String(url), init });
     const next = responses.shift();
     if (!next) throw new Error('no mocked response queued');
     return {
@@ -34,6 +35,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.NVIDIA_API_KEY;
+  delete process.env.IDENTIFY_MODEL;
+  delete process.env.XAI_API_KEY;
 });
 
 function chatResponse(message: Record<string, unknown>) {
@@ -147,6 +150,49 @@ describe('identify', () => {
 
     const sentBody = JSON.parse(calls[0].init.body as string);
     assert.match(sentBody.messages[1].content[1].text, /No caption was provided/);
+  });
+
+  test('routes grok models to xAI with XAI_API_KEY', async () => {
+    process.env.IDENTIFY_MODEL = 'grok-4.7';
+    process.env.XAI_API_KEY = 'xai-test';
+    responses.push({
+      status: 200,
+      body: chatResponse({
+        content: JSON.stringify({
+          brand: null,
+          product_type: 'jacket',
+          color: 'black',
+          distinguishing_features: [],
+          search_query: 'black jacket',
+          confidence: 'medium',
+        }),
+      }),
+    });
+
+    await identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' });
+
+    assert.match(calls[0].url, /^https:\/\/api\.x\.ai\/v1\/chat\/completions/);
+    assert.equal((calls[0].init.headers as Record<string, string>).authorization ?? (calls[0].init.headers as Headers).get?.('authorization'), 'Bearer xai-test');
+    const body = JSON.parse(String(calls[0].init.body));
+    assert.equal(body.model, 'grok-4.7');
+  });
+
+  test('throws when grok is configured but XAI_API_KEY is unset', async () => {
+    process.env.IDENTIFY_MODEL = 'grok-4.7';
+    delete process.env.XAI_API_KEY;
+    await assert.rejects(
+      () => identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' }),
+      /XAI_API_KEY is not set/,
+    );
+  });
+
+  test('rejects webp input when the provider is xAI', async () => {
+    process.env.IDENTIFY_MODEL = 'grok-4.7';
+    process.env.XAI_API_KEY = 'xai-test';
+    await assert.rejects(
+      () => identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/webp' }),
+      /xAI does not accept WebP/,
+    );
   });
 
   test('throws a clear error when the model does not return valid JSON', async () => {

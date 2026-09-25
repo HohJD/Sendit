@@ -157,9 +157,13 @@ DATABASE_URL=                # Postgres — local, Neon, or Supabase
 SESSION_SECRET=              # signs the session cookie and chat-login links
 
 DEMO_MODE=true               # canned matches; also auto-triggers on missing keys
-OPENAI_API_KEY=              # vision identify
-IDENTIFY_MODEL=gpt-4.1-mini  # bare id → OpenAI; "vendor/model" → NVIDIA NIM
+OPENAI_API_KEY=              # vision identify (bare IDENTIFY_MODEL)
+XAI_API_KEY=                 # vision identify via xAI (grok-* models)
+NVIDIA_API_KEY=              # vision identify via NVIDIA NIM (vendor/model ids)
+IDENTIFY_MODEL=grok-4.7      # "grok*" → xAI; "vendor/model" → NVIDIA NIM; bare → OpenAI
 SERPAPI_API_KEY=             # Google Shopping discovery
+TAVILY_API_KEY=              # web-search discovery (prices extracted by the LLM)
+SEARCH_PROVIDER=             # "tavily" or "serpapi"; unset → whichever key exists, serpapi if both
 
 WHATSAPP_TOKEN=              # Cloud API bearer (temporary or System User)
 WHATSAPP_PHONE_NUMBER_ID=    # the business number's ID

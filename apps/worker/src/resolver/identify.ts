@@ -18,43 +18,12 @@
  * confirmed on this serving stack — the schema is spelled out in the system
  * prompt instead, and the response is parsed defensively.
  */
-import OpenAI from 'openai';
+import { getClient, identifyModel, identifyProvider, __resetClientForTests } from './llm.ts';
 
-let client: OpenAI | null = null;
+/** Kept for existing tests — the client now lives in llm.ts, shared with tavily.ts. */
+export const __resetIdentifyClientForTests = __resetClientForTests;
 
-/** Test-only: the client is a module-scoped singleton, so tests need a way to clear it between cases. */
-export function __resetIdentifyClientForTests(): void {
-  client = null;
-}
-
-export function identifyModel(): string {
-  return process.env.IDENTIFY_MODEL ?? 'moonshotai/kimi-k2.6';
-}
-
-/**
- * Provider follows the model id: NIM ids are namespaced ("vendor/model"),
- * OpenAI's are bare ("gpt-4.1"). One env var picks both, so there is no way
- * to point a model at the wrong endpoint.
- */
-function getClient(): OpenAI {
-  if (!client) {
-    const onNim = identifyModel().includes('/');
-
-    const apiKey = onNim ? process.env.NVIDIA_API_KEY : process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error(`${onNim ? 'NVIDIA_API_KEY' : 'OPENAI_API_KEY'} is not set`);
-
-    client = new OpenAI({
-      ...(onNim ? { baseURL: 'https://integrate.api.nvidia.com/v1' } : {}),
-      apiKey,
-      // The SDK captures `fetch` once at construction (this.fetch = overriddenFetch ?? fetch)
-      // rather than reading globalThis.fetch per call. This thin wrapper defers that lookup to
-      // call time instead, so a test-mocked globalThis.fetch is actually honored — without it,
-      // requests silently go out over the real network no matter what a test overrides.
-      fetch: (url, init) => globalThis.fetch(url as never, init as never) as never,
-    });
-  }
-  return client;
-}
+export { identifyModel, identifyProvider };
 
 export interface ProductSignal {
   brand: string | null;
@@ -100,6 +69,13 @@ export async function identify(params: {
   caption?: string;
 }): Promise<ProductSignal> {
   const model = identifyModel();
+
+  // xAI's vision endpoint only accepts JPEG/PNG. sharp would convert, but it
+  // isn't a worker dependency — WhatsApp photos arrive as JPEG anyway, so a
+  // webp input is rare enough that a clear error beats a new native dep.
+  if (params.mediaType === 'image/webp' && identifyProvider() === 'xai') {
+    throw new Error('identify: xAI does not accept WebP; send a JPEG/PNG screenshot');
+  }
 
   const completion = await getClient().chat.completions.create({
     model,

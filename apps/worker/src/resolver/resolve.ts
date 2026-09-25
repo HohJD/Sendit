@@ -1,6 +1,6 @@
 import { identify, type ProductSignal } from './identify.ts';
 import type { CatalogCandidate } from './catalog.ts';
-import { searchByText } from './serpapi.ts';
+import { searchByText } from './search.ts';
 import { demoEnabled, demoResolve } from './demo.ts';
 import type { ShareMedia } from './media.ts';
 

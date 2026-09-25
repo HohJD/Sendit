@@ -46,15 +46,34 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 | `RETURN_ORIGINS` | Comma-separated front ends the return route may bounce back to |
 | `WEB_ORIGIN` | Public base URL of the dashboard — used to build the checkout link sent over WhatsApp. Defaults to `http://localhost:4321` |
 | `OPENAI_API_KEY` | Vision identify (bare `IDENTIFY_MODEL`). Absent → demo mode |
-| `IDENTIFY_MODEL` | `gpt-4.1-mini`-style bare id → OpenAI; `vendor/model` → NVIDIA NIM |
+| `IDENTIFY_MODEL` | `grok*` → xAI; `vendor/model` → NVIDIA NIM; bare id → OpenAI. Default `moonshotai/kimi-k2.6` |
+| `XAI_API_KEY` | Vision identify via xAI (`grok-*` models — recommended) |
 | `NVIDIA_API_KEY` | Vision identify via NVIDIA NIM (namespaced `IDENTIFY_MODEL`) |
 | `SERPAPI_API_KEY` | Google Shopping discovery. Absent → demo mode |
+| `TAVILY_API_KEY` | Web-search discovery — an alternative to SerpAPI |
+| `SEARCH_PROVIDER` | `tavily` or `serpapi`; unset → whichever key is present, `serpapi` when both are |
 | `META_APP_SECRET` | Signs `x-hub-signature-256` on every webhook (same app covers IG + WA) |
 | `META_VERIFY_TOKEN` | Handshake token for the Instagram webhook |
 | `WHATSAPP_TOKEN` | WhatsApp Cloud API bearer token |
 | `WHATSAPP_PHONE_NUMBER_ID` | The business phone number's *ID* (not the number itself) |
 | `WHATSAPP_VERIFY_TOKEN` | Handshake token for the WhatsApp webhook — any string you choose |
 | `IG_PAGE_ACCESS_TOKEN` | Instagram messaging + handle→IGSID lookup at sign-in. Optional in a WhatsApp-first setup |
+
+## Providers
+
+Recommended setup:
+
+```env
+IDENTIFY_MODEL=grok-4.7
+XAI_API_KEY=...
+TAVILY_API_KEY=...
+```
+
+SerpAPI + OpenAI (or NVIDIA NIM) remain fully supported — the provider follows
+the model id and the `SEARCH_PROVIDER` env. Caveat: Tavily is a general web
+index, so prices are extracted from page text by the LLM rather than coming
+from structured shopping data — products whose pages don't state a price in
+the snippet show as view-only (no Buy button).
 
 ## Database
 
@@ -119,7 +138,8 @@ link (valid 15 min) that logs you into the checkout page.
 product pages — no vision or SerpAPI calls, but the Approve → checkout →
 Prava sandbox chain still runs for real. It also *auto-triggers* when
 `DEMO_MODE` is unset but there is no vision key
-(`OPENAI_API_KEY`/`NVIDIA_API_KEY`) or no `SERPAPI_API_KEY` — check the worker
+(`OPENAI_API_KEY`/`XAI_API_KEY`/`NVIDIA_API_KEY`) or no search key
+(`TAVILY_API_KEY`/`SERPAPI_API_KEY`) — check the worker
 log for `demo: canned results (<reason>)` to see why. To force the real
 pipeline, set `DEMO_MODE=false` and supply all three keys.
 

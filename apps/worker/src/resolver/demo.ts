@@ -10,8 +10,12 @@ import type { ProductSignal } from './identify.ts';
  */
 export function demoReason(): string | null {
   if (process.env.DEMO_MODE === 'true') return 'DEMO_MODE=true';
-  if (!process.env.OPENAI_API_KEY && !process.env.NVIDIA_API_KEY) return 'no vision key';
-  if (!process.env.SERPAPI_API_KEY) return 'no SERPAPI_API_KEY';
+  if (!process.env.OPENAI_API_KEY && !process.env.NVIDIA_API_KEY && !process.env.XAI_API_KEY) {
+    return 'no vision key (OPENAI_API_KEY / XAI_API_KEY / NVIDIA_API_KEY)';
+  }
+  if (!process.env.SERPAPI_API_KEY && !process.env.TAVILY_API_KEY) {
+    return 'no search key (TAVILY_API_KEY / SERPAPI_API_KEY)';
+  }
   return null;
 }
 

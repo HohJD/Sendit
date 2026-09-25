@@ -2,7 +2,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { demoEnabled, demoReason, demoResolve } from './demo.ts';
 
-const KEYS = ['DEMO_MODE', 'OPENAI_API_KEY', 'NVIDIA_API_KEY', 'SERPAPI_API_KEY'];
+const KEYS = ['DEMO_MODE', 'OPENAI_API_KEY', 'NVIDIA_API_KEY', 'XAI_API_KEY', 'SERPAPI_API_KEY', 'TAVILY_API_KEY'];
 let saved: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -36,13 +36,25 @@ describe('demoEnabled', () => {
   test('on with no vision key', () => {
     process.env.SERPAPI_API_KEY = 'k';
     assert.equal(demoEnabled(), true);
-    assert.equal(demoReason(), 'no vision key');
+    assert.equal(demoReason(), 'no vision key (OPENAI_API_KEY / XAI_API_KEY / NVIDIA_API_KEY)');
   });
 
-  test('on with no serpapi key', () => {
+  test('off when only XAI_API_KEY supplies the vision key', () => {
+    process.env.XAI_API_KEY = 'k';
+    process.env.SERPAPI_API_KEY = 'k';
+    assert.equal(demoEnabled(), false);
+  });
+
+  test('on with no search key', () => {
     process.env.NVIDIA_API_KEY = 'k';
     assert.equal(demoEnabled(), true);
-    assert.equal(demoReason(), 'no SERPAPI_API_KEY');
+    assert.equal(demoReason(), 'no search key (TAVILY_API_KEY / SERPAPI_API_KEY)');
+  });
+
+  test('off when only TAVILY_API_KEY supplies the search key', () => {
+    process.env.OPENAI_API_KEY = 'k';
+    process.env.TAVILY_API_KEY = 'k';
+    assert.equal(demoEnabled(), false);
   });
 });
 
