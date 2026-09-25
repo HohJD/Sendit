@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="apps/web/public/dmlogo.jpg" alt="justdm" width="96" />
+<img src="apps/web/public/dmlogo.jpg" alt="sendit" width="96" />
 
-# justdm
+# sendit
 
 ### DM a reel. Get the product. Buy it without ever leaving the chat.
 
@@ -16,17 +16,17 @@
 [![Instagram API](https://img.shields.io/badge/Instagram-Messaging%20API-E4405F?logo=instagram&logoColor=white)](https://developers.facebook.com/docs/instagram-platform)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](#-license)
 
-[**Live App**](https://justdms.vercel.app) · [**Dashboard**](https://justdms.vercel.app/dashboard) · [**Privacy**](https://justdms.vercel.app/privacy)
+[**Live App**](https://sendit.vercel.app) · [**Dashboard**](https://sendit.vercel.app/dashboard) · [**Privacy**](https://sendit.vercel.app/privacy)
 
 </div>
 
 ---
 
-## What is justdm?
+## What is sendit?
 
 You see something in a reel. Screenshotting it, reverse-image-searching it, guessing the brand, finding a store that ships to you — that's the whole reason you never buy it.
 
-justdm collapses that into one gesture. **DM the post.** The agent pulls the frame, works out what the product is, finds it on real storefronts, and puts it on your dashboard. When you tap buy, Prava mints a **single-use, merchant-locked, amount-scoped** card and an agent drives the merchant's actual checkout with it.
+sendit collapses that into one gesture. **DM the post.** The agent pulls the frame, works out what the product is, finds it on real storefronts, and puts it on your dashboard. When you tap buy, Prava mints a **single-use, merchant-locked, amount-scoped** card and an agent drives the merchant's actual checkout with it.
 
 Nothing about that requires the merchant to integrate with anything. No affiliate deal, no API partnership, no SDK on their side — the agent checks out the way a person does.
 

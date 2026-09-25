@@ -368,7 +368,7 @@ function Chrome({ merchant }: { merchant: string }) {
       <a href="/dashboard" className="pointer-events-auto w-[110px] sm:w-[160px]">
         <svg viewBox="0 0 355 110" className="w-full">
           <text x="0" y="75" fill="#ffffff" fontSize="72" fontWeight="500" letterSpacing="-2">
-            JUSTDM
+            SENDIT
           </text>
         </svg>
       </a>

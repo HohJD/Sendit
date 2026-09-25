@@ -85,7 +85,7 @@ export async function callTool<T = unknown>(
   const init = await rpc(token, 'initialize', {
     protocolVersion: '2025-06-18',
     capabilities: {},
-    clientInfo: { name: 'justdm', version: '0.1.0' },
+    clientInfo: { name: 'sendit', version: '0.1.0' },
   });
 
   if (init.envelope.error) {

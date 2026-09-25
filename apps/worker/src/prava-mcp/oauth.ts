@@ -37,7 +37,7 @@ export async function clientId(): Promise<string> {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      client_name: 'justdm',
+      client_name: 'sendit',
       redirect_uris: [redirectUri()],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],

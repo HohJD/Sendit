@@ -5,7 +5,7 @@
  */
 
 // No product name has been chosen yet for this app — placeholder wordmark.
-export const BRAND_NAME = 'JUSTDM';
+export const BRAND_NAME = 'SENDIT';
 
 export const CAPTION =
   'You send us what catches your eye. We tell you where to buy it and what it costs.';
