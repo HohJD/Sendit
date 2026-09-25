@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="apps/web/public/dmlogo.jpg" alt="sendit" width="96" />
+<img src="apps/web/public/sendit-logo.png" alt="sendit" width="220" />
 
 # sendit
 
