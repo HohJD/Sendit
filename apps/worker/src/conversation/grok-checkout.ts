@@ -2,20 +2,36 @@ import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { demoFallbackCard } from '../payments/demo-card.ts';
 
 /**
- * Approve on WhatsApp opens the store with the local Grok agent, before the
- * passkey. Grok may drive the page up to the card form. It never receives a
- * card number; payment still goes through the Prava sandbox link.
+ * Approve launches the local Grok agent to walk a Shopify checkout with the
+ * public sandbox test card. The run is a dry buy: the card may be typed, and
+ * the order must not be submitted.
  */
 export function grokCheckoutPrompt(productUrl: string): string {
+  const card = demoFallbackCard();
   return [
-    `Open this product page in a browser and walk the checkout until the card form is on screen: ${productUrl}`,
-    'Add the item to the cart and continue through contact and shipping if the page asks.',
-    'Stop when the site asks for a card.',
-    'Do not type a card number. Do not submit payment. Do not place an order.',
-    'This is a Prava sandbox test, not a real purchase.',
-    'When the page is waiting for a card, say so and leave the browser open.',
+    'Dry run only. Walk the purchase and then stop. Do not place the order.',
+    `Open this product page in a browser: ${productUrl}`,
+    'Add one item to the cart and continue to checkout.',
+    'If the site asks for contact or shipping, use:',
+    'Email: demo@sendit.app',
+    'Name: Sendit Demo',
+    'Address: 1 Market Street',
+    'City: San Francisco',
+    'State: CA',
+    'Postal code: 94105',
+    'Country: United States',
+    'Phone: 4155550100',
+    'When the card form is visible, fill this Prava sandbox test card:',
+    `Card number: ${card.token}`,
+    `Expiry: ${card.expiryMonth}/${card.expiryYear}`,
+    `Security code: ${card.dynamicCvv}`,
+    'After the card fields are filled, stop.',
+    'Do not click Pay, Place order, Complete order, Buy, Submit, or any control that would place or charge an order.',
+    'Leave the browser open on the filled payment form.',
+    'Reply with the page URL and say the order was not placed.',
   ].join('\n');
 }
 
@@ -55,5 +71,5 @@ export async function launchGrokCheckout(
   const bin = process.env.GROK_BIN ?? '/Users/hohjiada/.grok/bin/grok';
   await writeFile(scriptPath, grokCheckoutShell(productUrl, bin, cwd), { mode: 0o700 });
   open(scriptPath);
-  console.log(`checkout: launched Grok for ${productUrl}`);
+  console.log(`checkout: launched Grok dry run for ${productUrl}`);
 }

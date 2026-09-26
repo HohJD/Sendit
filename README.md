@@ -30,7 +30,7 @@ Send one of these:
 
 Sendit replies that it is looking, reads the image, and comes back with a match: title, store, and price.
 
-**Approve** appears only when the match is a store the checkout agent can drive. Today that means Shopify. Tap Approve and Grok opens that store on this Mac, adds the item, and stops at the card form. It does not see a card number and it does not place the order. WhatsApp then sends a link that lasts 15 minutes. Open it when the page asks for a card. It signs you into the account that owns those finds, you approve with a passkey, and the checkout agent submits the Prava sandbox card. No real money moves. A decline at the merchant means the test card reached a processor.
+**Approve** appears only when the match is a store the checkout agent can drive. Today that means Shopify. Tap Approve and Grok opens that store on this Mac, adds the item, fills the public sandbox test card, and stops. It does not click Pay and it does not place the order. WhatsApp does not send a pay link for that tap.
 
 Any other store comes back **view only**, with **Not this one** and no Approve button. Checkout would stop, so Sendit does not offer it.
 
@@ -57,7 +57,7 @@ Signing in on the dashboard with only an email creates or opens a different acco
 ```
 WhatsApp ─▶ image ─▶ identify ─▶ search ─▶ match card
                                               │
-                         Shopify: Approve ────┴──▶ passkey ─▶ checkout agent
+                         Shopify: Approve ────┴──▶ Grok dry run, stop before pay
                          other stores: view only
 ```
 
@@ -66,7 +66,7 @@ WhatsApp ─▶ image ─▶ identify ─▶ search ─▶ match card
 3. **Identify** — A vision model returns the brand, product type, colour, material, and a shopping query.
 4. **Search** — That query is searched on the web. Prices are read from the page text. If the specific query misses, Sendit tries once more with a coarser description.
 5. **Reply** — The best match is sent back in chat. Shopify matches include Approve and Not this one. Other matches are view-only.
-6. **Checkout** — Approve launches Grok on this Mac to open the store and stop at the card form. The passkey link then mints a Prava sandbox card, and the checkout agent submits it and reports the outcome.
+6. **Checkout** — Approve launches Grok on this Mac. Grok fills the sandbox test card and stops before placing the order.
 
 `DEMO_MODE=true` swaps steps 3 and 4 for a fixed catalog after the image is acquired. An unreadable link still asks for a screenshot.
 

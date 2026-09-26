@@ -2,12 +2,10 @@ import { db, users, identities } from '@prava/db';
 import { and, eq, inArray } from 'drizzle-orm';
 import { loadItem } from '../intake/store.ts';
 import { launchGrokCheckout } from './grok-checkout.ts';
-import { signChatLogin } from './link.ts';
 
 /**
- * Approve button → a signed link into the web checkout. Passkey approval only
- * exists inside a browser (Prava's iframe), so the chat flow has to hand off
- * here — the link signs the chat user in and opens the checkout page.
+ * Approve button → Grok walks the store on this Mac with the sandbox test
+ * card and stops before placing the order. No pay link is sent.
  *
  * Returns the message to send back to the user.
  */
@@ -33,10 +31,6 @@ export async function startCheckout(userId: string, itemId: string): Promise<str
       .where(eq(users.id, userId));
   }
 
-  // || not ?? — .env keeps WEB_ORIGIN present-but-empty in dev.
-  const origin = process.env.WEB_ORIGIN || 'http://localhost:4321';
-  const url = `${origin}/chat-login?${signChatLogin({ userId, next: `/checkout/${itemId}` })}`;
-
   const price =
     item.priceAmount && item.currency
       ? new Intl.NumberFormat('en', { style: 'currency', currency: item.currency }).format(
@@ -55,12 +49,8 @@ export async function startCheckout(userId: string, itemId: string): Promise<str
   }
 
   const intro = grokOpened
-    ? 'Grok is opening this store on your laptop. It will stop at the card form.'
-    : 'Test purchase, no real money (Prava sandbox).';
+    ? 'Grok is walking this purchase on your laptop. It will fill the sandbox test card and stop before placing the order.'
+    : 'Grok could not be started on this laptop, so nothing was opened and no order was placed.';
 
-  return (
-    `${intro}\n\n` +
-    `${item.title} — ${price}\n${item.merchant ?? 'Unknown merchant'}\n\n` +
-    `No real money. When the page asks for a card, confirm with your passkey here (link valid 15 min):\n${url}`
-  );
+  return `${intro}\n\n${item.title} — ${price}\n${item.merchant ?? 'Unknown merchant'}\n\nNo order will be placed.`;
 }
