@@ -204,6 +204,10 @@ export async function executeCheckout(params: {
       );
     }
 
+    if (/has been closed/i.test(message)) {
+      return { status: 'failed', message: "the agent's browser window was closed before the store answered", url: productUrl };
+    }
+
     return await fail(message);
   } finally {
     // Hold the final screen so an audience sees the store's verdict — without
