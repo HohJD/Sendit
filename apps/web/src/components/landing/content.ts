@@ -8,7 +8,7 @@ export const HOW_IT_WORKS = [
   {
     n: '01',
     title: 'Send it',
-    body: 'A link, a screenshot, or a sentence. WhatsApp first, Instagram DMs too.',
+    body: 'A link or a screenshot. WhatsApp first, Instagram DMs too.',
   },
   {
     n: '02',

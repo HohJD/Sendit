@@ -14,9 +14,13 @@ export interface HandlerDeps {
 }
 
 const WELCOME =
-  'Hi, I\'m Sendit. Send me an Instagram/TikTok link, a screenshot, or just ' +
-  'describe the product ("find me this jacket") and I\'ll find it and set up ' +
-  'a test purchase — no real money, Prava sandbox.';
+  'Hi, I\'m Sendit. Send me an Instagram/TikTok link or a screenshot of a ' +
+  'product and I\'ll find it and set up a test purchase — no real money, ' +
+  'Prava sandbox.';
+
+/** Text alone is never enough to identify a product — it earns a hint, not a share. */
+const HINT =
+  'Send me a link to the post or a screenshot of the product and I\'ll find it.';
 
 const GREETING = /^\s*(hi|hello|hey|start|help)\b/i;
 
@@ -95,16 +99,11 @@ export function createHandler(deps: HandlerDeps) {
         send(() => adapter.sendText(to, WELCOME));
         return;
       }
-      if (await deps.recordShare({
-        platform: msg.channel,
-        externalId: msg.externalId,
-        messageId: msg.messageId,
-        inputKind: 'text',
-        sourceUrl: '',
-        inputText: text,
-        raw: msg.raw,
-      })) queued += 1;
-      ack = () => adapter.sendText(to, `On it — searching for "${text}"…`);
+      // Plain text never starts a search — "find me a black jacket" can't be
+      // identified by the resolver, so we steer to a link or screenshot and
+      // record nothing.
+      send(() => adapter.sendText(to, HINT), HINT);
+      return;
     }
 
     // One ack per inbound message no matter how many shares it produced, and

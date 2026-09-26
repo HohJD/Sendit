@@ -6,7 +6,7 @@
 
 ### DM a reel. Get the product. Buy it without ever leaving the chat.
 
-*You message a WhatsApp number (or an Instagram account) — a link, a screenshot, or just "find me this jacket". An agent identifies the product, finds it on real storefronts, and checks out with a [Prava](https://prava.space) one-time card that only works once, at that merchant, for that amount.*
+*You message a WhatsApp number (or an Instagram account) — a link to the post or a screenshot of the product. An agent identifies the product, finds it on real storefronts, and checks out with a [Prava](https://prava.space) one-time card that only works once, at that merchant, for that amount.*
 
 [![Astro](https://img.shields.io/badge/Astro-7-BC52EE?logo=astro&logoColor=white)](https://astro.build)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)

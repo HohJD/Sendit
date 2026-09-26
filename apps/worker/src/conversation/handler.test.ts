@@ -129,22 +129,45 @@ describe('conversation handler', () => {
     assert.match(sent[0].args[0] as string, /I'm Sendit/);
   });
 
-  test('a plain product request queues a text share', async () => {
+  test('a plain product request never creates a share — it gets the hint', async () => {
     const sent: Sent[] = [];
-    const d = deps();
+    let called = false;
+    const d = deps({ recordShare: async () => (called = true, true) });
     await createHandler(d)(fakeAdapter(sent), base({ text: 'find me a black jacket' }));
     await flush();
 
-    assert.equal(d.shares.length, 1);
-    assert.equal(d.shares[0].inputKind, 'text');
-    assert.equal(d.shares[0].inputText, 'find me a black jacket');
-    assert.match(sent[0].args[0] as string, /searching for "find me a black jacket"/);
+    assert.equal(called, false);
+    assert.equal(d.shares.length, 0);
+    assert.equal(sent.length, 1);
+    assert.equal(
+      sent[0].args[0],
+      "Send me a link to the post or a screenshot of the product and I'll find it.",
+    );
+  });
+
+  test('any other plain text gets the same hint', async () => {
+    const sent: Sent[] = [];
+    const d = deps();
+    await createHandler(d)(
+      fakeAdapter(sent),
+      base({ text: 'do you guys ship to canada' }),
+    );
+    await flush();
+
+    assert.equal(d.shares.length, 0);
+    assert.match(sent[0].args[0] as string, /screenshot of the product/);
   });
 
   test('a redelivery that dedupes sends no ack', async () => {
     const sent: Sent[] = [];
     const d = deps({ recordShare: async () => false });
-    await createHandler(d)(fakeAdapter(sent), base({ text: 'find me a black jacket' }));
+    await createHandler(d)(
+      fakeAdapter(sent),
+      base({
+        text: 'look https://www.instagram.com/reel/A/',
+        urls: ['https://www.instagram.com/reel/A'],
+      }),
+    );
     await flush();
 
     assert.equal(sent.length, 0);

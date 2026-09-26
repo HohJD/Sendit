@@ -133,8 +133,8 @@ the chat-login link works against any reachable dashboard.)
    into a window the user opened by messaging first — fine here, every send
    is a reply. No approved message templates needed.
 
-Test it end to end: text `hi`, paste an Instagram/TikTok link, send a
-screenshot of a product, or just write `find me a black jacket`. You'll get a
+Test it end to end: text `hi`, paste an Instagram/TikTok link, or send a
+screenshot of a product. You'll get a
 match card with Approve/Not-this-one buttons; Approve replies with a signed
 link (valid 15 min) that logs you into the checkout page.
 
@@ -186,13 +186,15 @@ exist — a fake token fails on Meta's side, not ours, and send failures are
 logged without marking the share failed):
 
 ```bash
-BODY='{"entry":[{"changes":[{"field":"messages","value":{"messages":[{"id":"wamid.t1","from":"15551234567","type":"text","text":{"body":"find me a black jacket"}}]}}]}]}'
+BODY='{"entry":[{"changes":[{"field":"messages","value":{"messages":[{"id":"wamid.t1","from":"15551234567","type":"text","text":{"body":"want this https://www.instagram.com/reel/XYZ/"}}]}}]}]}'
 SIG="sha256=$(printf %s "$BODY" | openssl dgst -sha256 -hmac "$META_APP_SECRET" | cut -d' ' -f2)"
 curl -s -X POST http://localhost:8787/webhooks/whatsapp -H "x-hub-signature-256: $SIG" -H 'content-type: application/json' -d "$BODY"
 ```
 
-Expect a `shares` row (`input_kind='text'`), three canned `items`, and a
-logged outbound-send failure carrying the full message body.
+Expect a `shares` row (`input_kind='link'`), three canned `items`, and a
+logged outbound-send failure carrying the full message body. Plain text
+without a link gets the "send me a link or a screenshot" hint and records
+nothing.
 
 ## Deploy (Vercel)
 
