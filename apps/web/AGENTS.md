@@ -30,3 +30,5 @@ Consult these guides before working on related tasks:
 - `/explore` currently uses the separate catalog search provider, not the Tavily provider used by the chat resolver. Do not assume Tavily credentials enable Explore.
 - Email-only sign-in does not link a WhatsApp identity. Open the signed link received in chat to access that chat account.
 - Never log environment values, signed login links, session cookies, or payment credentials during verification.
+- Incident on 2026-09-26: captured Wassist traffic showed Hermes-generated replies alternating with Sendit hints. The local worker was stopped to break the bot-to-bot loop. Do not restart it until Hermes auto-replies/watchdog for this chat are paused and the user agrees to a controlled retest.
+- The conversation handler suppresses repeated guidance until a new share is queued and deduplicates messages in a bounded, process-local cache (10,000 entries). These protections reset on restart and do not replace durable idempotency or disabling the other bot. Validate fixes with mocked outbound sends, never live replay to the user's phone.

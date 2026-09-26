@@ -31,6 +31,13 @@ const GREETING = /^\s*(hi|hello|hey|start|help)\b/i;
  * Meta retry of an already-processed message.
  */
 export function createHandler(deps: HandlerDeps) {
+  const notices = new Set<string>();
+  const processed = new Set<string>();
+  const inFlight = new Map<string, Promise<void>>();
+  const remember = (entries: Set<string>, key: string): void => {
+    entries.add(key);
+    if (entries.size > 10_000) entries.delete(entries.values().next().value!);
+  };
   /** Fire-and-forget: logged, never thrown. The unsent body goes to the log so
    * a failed send (dead token, no network) still shows what the user missed. */
   const send = (fn: () => Promise<void>, body?: string): void => {
@@ -40,8 +47,14 @@ export function createHandler(deps: HandlerDeps) {
     });
   };
 
-  return async function handleInbound(adapter: ChannelAdapter, msg: InboundMessage): Promise<void> {
+  async function handleMessage(adapter: ChannelAdapter, msg: InboundMessage): Promise<void> {
     const to = msg.externalId;
+    const conversationKey = JSON.stringify([msg.channel, to]);
+    const informOnce = (text: string): void => {
+      if (notices.has(conversationKey)) return;
+      remember(notices, conversationKey);
+      send(() => adapter.sendText(to, text));
+    };
 
     // A tap on a button we sent — these ids are ours, minted by the resolver.
     if (msg.buttonReply) {
@@ -51,9 +64,7 @@ export function createHandler(deps: HandlerDeps) {
         const text = await deps.startCheckout(userId, id);
         send(() => adapter.sendText(to, text), text);
       } else if (action === 'reject') {
-        send(() =>
-          adapter.sendText(to, 'No problem. Send me another screenshot, link, or describe what you\'re after.'),
-        );
+        informOnce('No problem. Send me another screenshot or product link.');
       }
       return;
     }
@@ -88,26 +99,44 @@ export function createHandler(deps: HandlerDeps) {
         })) queued += 1;
         ack = () => adapter.sendText(to, 'On it — finding that product…');
       } else {
-        send(() =>
-          adapter.sendText(to, "I can't watch videos yet. Send me a screenshot of the product instead."),
-        );
+        informOnce("I can't watch videos yet. Send me a screenshot of the product instead.");
         return;
       }
     } else {
       const text = (msg.text ?? '').trim();
+      if (!text) return;
       if (GREETING.test(text) || text.length < 4) {
-        send(() => adapter.sendText(to, WELCOME));
+        informOnce(WELCOME);
         return;
       }
       // Plain text never starts a search — "find me a black jacket" can't be
       // identified by the resolver, so we steer to a link or screenshot and
       // record nothing.
-      send(() => adapter.sendText(to, HINT), HINT);
+      informOnce(HINT);
       return;
     }
 
     // One ack per inbound message no matter how many shares it produced, and
     // silence on a redelivery — the user already heard from us the first time.
-    if (queued > 0 && ack) send(ack);
+    if (queued > 0 && ack) {
+      notices.delete(conversationKey);
+      send(ack);
+    }
+  }
+
+  return async function handleInbound(adapter: ChannelAdapter, msg: InboundMessage): Promise<void> {
+    const key = JSON.stringify([msg.channel, msg.externalId, msg.messageId]);
+    if (processed.has(key)) return;
+    const pending = inFlight.get(key);
+    if (pending) return pending;
+    if (inFlight.size >= 10_000) throw new Error('intake capacity reached');
+    const task = Promise.resolve().then(() => handleMessage(adapter, msg));
+    inFlight.set(key, task);
+    try {
+      await task;
+      remember(processed, key);
+    } finally {
+      inFlight.delete(key);
+    }
   };
 }
