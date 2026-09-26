@@ -133,8 +133,8 @@ Sign-in takes an email and an optional Instagram handle. The handle can claim In
 
 ## Quick start
 
-Continuing in Cursor? Open the entire repository and read [AGENTS.md](AGENTS.md)
-first for the architecture, verified state, Grok provider work and launch blockers.
+Open the entire repository and read [AGENTS.md](AGENTS.md) first for the
+architecture, verified state, OpenRouter setup and launch blockers.
 Use [SETUP.md](SETUP.md) to recreate local services. Do not overwrite an existing
 `.env`; it contains local credentials and is intentionally excluded from GitHub.
 
@@ -161,11 +161,13 @@ CHECKOUT_HEADLESS=false pnpm worker      # visible browser, so a human can clear
 DATABASE_URL=                # Postgres — local, Neon, or Supabase
 SESSION_SECRET=              # signs the session cookie and chat-login links
 
-DEMO_MODE=true               # canned matches; also auto-triggers on missing keys
-OPENAI_API_KEY=              # vision identify (bare IDENTIFY_MODEL)
-XAI_API_KEY=                 # vision identify via xAI (grok-* models)
-NVIDIA_API_KEY=              # vision identify via NVIDIA NIM (vendor/model ids)
-IDENTIFY_MODEL=grok-4.7      # "grok*" → xAI; "vendor/model" → NVIDIA NIM; bare → OpenAI
+DEMO_MODE=true               # canned matches; also triggers if a selected provider's key is missing
+LLM_PROVIDER=openrouter      # openrouter | openai | xai | nim; overrides model-name inference
+OPENROUTER_API_KEY=          # image identification + Tavily extraction through OpenRouter
+OPENAI_API_KEY=              # optional direct OpenAI alternative
+XAI_API_KEY=                 # optional direct xAI alternative
+NVIDIA_API_KEY=              # optional direct NVIDIA NIM alternative
+IDENTIFY_MODEL=openai/gpt-4.1-mini # image-capable default for OpenRouter; verify account access
 SERPAPI_API_KEY=             # Google Shopping discovery
 TAVILY_API_KEY=              # web-search discovery (prices extracted by the LLM)
 SEARCH_PROVIDER=             # "tavily" or "serpapi"; unset → whichever key exists, serpapi if both

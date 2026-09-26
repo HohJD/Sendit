@@ -18,7 +18,7 @@
  * confirmed on this serving stack — the schema is spelled out in the system
  * prompt instead, and the response is parsed defensively.
  */
-import { getClient, identifyModel, identifyProvider, __resetClientForTests } from './llm.ts';
+import { getClient, identifyModel, identifyProvider, providerOptions, __resetClientForTests } from './llm.ts';
 
 /** Kept for existing tests — the client now lives in llm.ts, shared with tavily.ts. */
 export const __resetIdentifyClientForTests = __resetClientForTests;
@@ -78,6 +78,7 @@ export async function identify(params: {
   }
 
   const completion = await getClient().chat.completions.create({
+    ...providerOptions(),
     model,
     temperature: 0.2, // consistent structured extraction, not creative generation
     top_p: 1,

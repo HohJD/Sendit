@@ -1,6 +1,8 @@
 import type { CatalogCandidate } from './catalog.ts';
 import type { ResolveResult } from './resolve.ts';
 import type { ProductSignal } from './identify.ts';
+import { identifyApiKeyName, identifyProvider } from './llm.ts';
+import { searchProvider } from './search.ts';
 
 /**
  * Demo mode: canned matches instead of vision + paid search. Triggers three
@@ -10,12 +12,12 @@ import type { ProductSignal } from './identify.ts';
  */
 export function demoReason(): string | null {
   if (process.env.DEMO_MODE === 'true') return 'DEMO_MODE=true';
-  if (!process.env.OPENAI_API_KEY && !process.env.NVIDIA_API_KEY && !process.env.XAI_API_KEY) {
-    return 'no vision key (OPENAI_API_KEY / XAI_API_KEY / NVIDIA_API_KEY)';
-  }
-  if (!process.env.SERPAPI_API_KEY && !process.env.TAVILY_API_KEY) {
-    return 'no search key (TAVILY_API_KEY / SERPAPI_API_KEY)';
-  }
+  const modelProvider = identifyProvider();
+  const modelKey = identifyApiKeyName();
+  const search = searchProvider();
+  const searchKey = search === 'tavily' ? 'TAVILY_API_KEY' : 'SERPAPI_API_KEY';
+  if (!process.env[modelKey]?.trim()) return `missing ${modelKey} for ${modelProvider}`;
+  if (!process.env[searchKey]?.trim()) return `missing ${searchKey} for ${search}`;
   return null;
 }
 

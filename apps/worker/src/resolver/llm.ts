@@ -8,6 +8,15 @@
  */
 import OpenAI from 'openai';
 
+const PROVIDERS = {
+  openrouter: { key: 'OPENROUTER_API_KEY', baseURL: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4.1-mini' },
+  openai: { key: 'OPENAI_API_KEY', baseURL: 'https://api.openai.com/v1', model: 'gpt-4.1-mini' },
+  xai: { key: 'XAI_API_KEY', baseURL: 'https://api.x.ai/v1', model: 'grok-4.7' },
+  nim: { key: 'NVIDIA_API_KEY', baseURL: 'https://integrate.api.nvidia.com/v1', model: 'moonshotai/kimi-k2.6' },
+} as const;
+
+export type LlmProvider = keyof typeof PROVIDERS;
+
 let client: OpenAI | null = null;
 
 /** Test-only: the client is a module-scoped singleton, so tests need a way to clear it between cases. */
@@ -20,38 +29,51 @@ export function __resetClientForTests(): void {
  * .env with just XAI_API_KEY works without also knowing the model id to type.
  */
 export function identifyModel(): string {
-  if (process.env.IDENTIFY_MODEL) return process.env.IDENTIFY_MODEL;
-  if (process.env.XAI_API_KEY) return 'grok-4.7';
-  if (process.env.OPENAI_API_KEY) return 'gpt-4.1-mini';
-  return 'moonshotai/kimi-k2.6';
+  return process.env.IDENTIFY_MODEL?.trim() || PROVIDERS[identifyProvider()].model;
 }
 
-export function identifyProvider(): 'xai' | 'nim' | 'openai' {
-  const model = identifyModel();
-  if (model.startsWith('grok')) return 'xai';
-  if (model.includes('/')) return 'nim';
-  return 'openai';
+export function identifyProvider(): LlmProvider {
+  const explicit = process.env.LLM_PROVIDER?.trim();
+  if (explicit) {
+    if (!Object.hasOwn(PROVIDERS, explicit)) {
+      throw new Error('LLM_PROVIDER must be openrouter, openai, xai, or nim');
+    }
+    return explicit as LlmProvider;
+  }
+  const model = process.env.IDENTIFY_MODEL?.trim();
+  if (model) {
+    if (model.startsWith('grok')) return 'xai';
+    return model.includes('/') ? 'nim' : 'openai';
+  }
+  if (process.env.XAI_API_KEY?.trim()) return 'xai';
+  if (process.env.OPENAI_API_KEY?.trim()) return 'openai';
+  if (process.env.NVIDIA_API_KEY?.trim()) return 'nim';
+  return process.env.OPENROUTER_API_KEY?.trim() ? 'openrouter' : 'nim';
+}
+
+export function identifyApiKeyName(): string {
+  return PROVIDERS[identifyProvider()].key;
+}
+
+export function providerOptions(): { provider?: { require_parameters: boolean } } {
+  return identifyProvider() === 'openrouter' ? { provider: { require_parameters: true } } : {};
 }
 
 export function getClient(): OpenAI {
-  if (!client) {
-    const provider = identifyProvider();
-    const apiKey =
-      provider === 'xai'
-        ? process.env.XAI_API_KEY
-        : provider === 'nim'
-          ? process.env.NVIDIA_API_KEY
-          : process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        `${provider === 'xai' ? 'XAI_API_KEY' : provider === 'nim' ? 'NVIDIA_API_KEY' : 'OPENAI_API_KEY'} is not set`,
-      );
-    }
+  const provider = identifyProvider();
+  const { key, baseURL } = PROVIDERS[provider];
+  const apiKey = process.env[key]?.trim();
+  if (!apiKey) throw new Error(`${key} is not set`);
 
+  if (!client || client.baseURL !== baseURL || client.apiKey !== apiKey) {
     client = new OpenAI({
-      ...(provider === 'xai' ? { baseURL: 'https://api.x.ai/v1' } : {}),
-      ...(provider === 'nim' ? { baseURL: 'https://integrate.api.nvidia.com/v1' } : {}),
+      baseURL,
       apiKey,
+      ...(provider === 'openrouter' ? {
+        timeout: 30_000,
+        maxRetries: 1,
+        defaultHeaders: { 'X-OpenRouter-Title': 'Sendit' },
+      } : {}),
       // The SDK captures `fetch` once at construction (this.fetch = overriddenFetch ?? fetch)
       // rather than reading globalThis.fetch per call. This thin wrapper defers that lookup to
       // call time instead, so a test-mocked globalThis.fetch is actually honored — without it,

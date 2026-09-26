@@ -1,6 +1,7 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { identify, __resetIdentifyClientForTests } from './identify.ts';
+import { identify, identifyModel, identifyProvider, __resetIdentifyClientForTests } from './identify.ts';
+import { getClient } from './llm.ts';
 
 // Smallest valid JPEG (1x1 black pixel) — real bytes, not a placeholder string,
 // so the test exercises the actual base64 image content block.
@@ -9,14 +10,18 @@ const TINY_JPEG_BASE64 =
 
 let calls: Array<{ url: string; init: RequestInit }>;
 let responses: Array<{ status: number; body: unknown }>;
+const ENV_KEYS = ['LLM_PROVIDER', 'IDENTIFY_MODEL', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'NVIDIA_API_KEY'];
+let saved: Record<string, string | undefined>;
+let realFetch: typeof fetch;
 
 beforeEach(() => {
   calls = [];
   responses = [];
+  saved = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+  for (const key of ENV_KEYS) delete process.env[key];
+  realFetch = globalThis.fetch;
   __resetIdentifyClientForTests();
   process.env.NVIDIA_API_KEY = 'nvapi-test';
-  delete process.env.IDENTIFY_MODEL;
-  delete process.env.XAI_API_KEY;
 
   // @ts-expect-error — test double; the OpenAI SDK uses global fetch under Node 18+
   globalThis.fetch = async (url: string, init: RequestInit) => {
@@ -34,9 +39,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete process.env.NVIDIA_API_KEY;
-  delete process.env.IDENTIFY_MODEL;
-  delete process.env.XAI_API_KEY;
+  globalThis.fetch = realFetch;
+  __resetIdentifyClientForTests();
+  for (const key of ENV_KEYS) {
+    if (saved[key] === undefined) delete process.env[key];
+    else process.env[key] = saved[key];
+  }
 });
 
 function chatResponse(message: Record<string, unknown>) {
@@ -50,6 +58,86 @@ function chatResponse(message: Record<string, unknown>) {
 }
 
 describe('identify', () => {
+  test('OpenRouter overrides namespaced-model inference and sends the image and JSON requirements', async () => {
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.OPENROUTER_API_KEY = 'openrouter-test';
+    process.env.OPENAI_API_KEY = 'not-the-openrouter-key';
+    process.env.IDENTIFY_MODEL = 'openai/gpt-4.1-mini';
+    responses.push({ status: 200, body: chatResponse({ content: JSON.stringify({
+      brand: null, product_type: 'jacket', color: 'black', distinguishing_features: [],
+      search_query: 'black jacket', confidence: 'medium',
+    }) }) });
+
+    const result = await identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' });
+    assert.equal(result.productType, 'jacket');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(new Headers(calls[0].init.headers).get('authorization'), 'Bearer openrouter-test');
+    const body = JSON.parse(String(calls[0].init.body));
+    assert.equal(body.model, 'openai/gpt-4.1-mini');
+    assert.equal(body.response_format.type, 'json_object');
+    assert.deepEqual(body.provider, { require_parameters: true });
+    assert.equal(body.messages[1].content.find((c: { type: string }) => c.type === 'image_url').image_url.url,
+      `data:image/jpeg;base64,${TINY_JPEG_BASE64}`);
+  });
+
+  test('OpenRouter without its own key fails before making a request even if another key exists', async () => {
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.OPENAI_API_KEY = 'other-key';
+    await assert.rejects(identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' }), /OPENROUTER_API_KEY is not set/);
+    assert.equal(calls.length, 0);
+  });
+
+  test('provider-specific defaults work without IDENTIFY_MODEL', () => {
+    for (const [provider, model] of [
+      ['openrouter', 'openai/gpt-4.1-mini'], ['openai', 'gpt-4.1-mini'],
+      ['xai', 'grok-4.7'], ['nim', 'moonshotai/kimi-k2.6'],
+    ]) {
+      process.env.LLM_PROVIDER = provider;
+      assert.equal(identifyProvider(), provider);
+      assert.equal(identifyModel(), model);
+    }
+  });
+
+  test('OpenRouter is selected automatically only when no legacy provider/model is configured', () => {
+    delete process.env.NVIDIA_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'openrouter-test';
+    assert.equal(identifyProvider(), 'openrouter');
+    assert.equal(identifyModel(), 'openai/gpt-4.1-mini');
+    process.env.IDENTIFY_MODEL = 'moonshotai/kimi-k2.6';
+    assert.equal(identifyProvider(), 'nim');
+  });
+
+  test('a misspelled explicit provider fails instead of sending a key to an inferred endpoint', () => {
+    process.env.LLM_PROVIDER = 'openroutr';
+    assert.throws(() => getClient(), /LLM_PROVIDER must be/);
+    assert.equal(calls.length, 0);
+  });
+
+  test('the cached client is replaced when provider or API key changes', () => {
+    const nim = getClient();
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.OPENROUTER_API_KEY = 'openrouter-test';
+    const router = getClient();
+    assert.notEqual(router, nim);
+    assert.equal(router.baseURL, 'https://openrouter.ai/api/v1');
+    assert.equal(getClient(), router);
+    process.env.OPENROUTER_API_KEY = 'rotated-test-key';
+    assert.notEqual(getClient(), router);
+    assert.equal(getClient().apiKey, 'rotated-test-key');
+    assert.equal(getClient().timeout, 30_000);
+    assert.equal(getClient().maxRetries, 1);
+  });
+
+  test('OpenRouter model/parameter failures are surfaced without silently switching providers', async () => {
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.OPENROUTER_API_KEY = 'openrouter-test';
+    responses.push({ status: 400, body: { error: { message: 'Model does not support response_format' } } });
+    await assert.rejects(identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' }), /response_format/);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://openrouter.ai/api/v1/chat/completions');
+  });
+
   test('sends the image as a data URI and defaults to Kimi K2.6', async () => {
     responses.push({
       status: 200,

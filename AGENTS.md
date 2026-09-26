@@ -1,4 +1,4 @@
-# Sendit project handoff
+# Sendit development guide
 
 ## Start here
 
@@ -22,20 +22,27 @@ production-ready payment application.
 
 - Local Postgres `sendit`, Astro on port 4321 and worker on port 8787 are configured on this Mac.
 - Wassist forwards signed events to the worker through ngrok. A GET health check does not prove screenshot/button round trips work; verify these with the user.
-- `DEMO_MODE=true`. Tavily, Wassist and Prava credentials have been tested previously, but no xAI/OpenAI/NVIDIA runtime key is configured as of this handoff.
+- The user chose to continue building here using OpenRouter rather than handing off Grok Bot work. No Grok Bot bridge is required.
+- `DEMO_MODE=true` was retained. Tavily, Wassist and Prava credentials have been tested previously. OpenRouter is implemented and mocked tests pass, but an authenticated live model call remains outstanding; do not claim real identification has been verified.
 - Vercel project `hohjds-projects/sendit` has been configured with root `apps/web`; no live deployment has been verified. Hosted Postgres connection strings are missing.
 - After a Hermes/Sendit bot-to-bot loop, the user confirmed Hermes auto-replies were stopped and explicitly approved restarting Sendit. The worker was restarted and local/public health checks returned 200. Do not re-enable Hermes auto-replies in this test chat.
 
-## Next task: Grok integration verification
+## Next task: OpenRouter live verification
 
-The direct xAI provider is already implemented; do not build another messaging bot.
+The provider is implemented; do not build another messaging bot or MCP bridge.
 
 1. Inspect `resolver/llm.ts`, `identify.ts`, `search.ts`, `tavily.ts`, `resolve.ts`, and `demo.ts`, plus their tests.
-2. Obtain a runtime model key through the local `.env`, not chat. A Cursor/Grok Bot subscription is not an xAI API credential. The Grok Bot MCP bridge is not installed and is not part of Sendit's pipeline.
-3. Check the model actually available to the user's xAI account before a live call. `grok-4.7` is the current code default, not a guarantee of account access. Set `IDENTIFY_MODEL` explicitly to a verified vision-capable model; set `SEARCH_PROVIDER=tavily`.
+2. Obtain `OPENROUTER_API_KEY` through the local `.env`, not chat. Use `LLM_PROVIDER=openrouter`, `IDENTIFY_MODEL=openai/gpt-4.1-mini`, and `SEARCH_PROVIDER=tavily`. No direct OpenAI or xAI key is needed for that setup.
+3. The public catalog lists the default model with image and JSON-format support. Confirm account access/credits with a controlled live call; do not infer that from mocked tests. Both identification and Tavily extraction use the same selected model.
 4. With user approval, set `DEMO_MODE=false`, restart the worker, and run `pnpm resolve -- /absolute/path/to/product.png` from the root. This CLI resolves an image without sending a WhatsApp reply or starting a checkout; provider requests can incur charges.
-5. Confirm real image identification, structured extraction, merchant URL/price accuracy, timeouts and failure behavior. Existing provider tests use mocked responses, not live xAI validation. xAI WebP input currently throws instead of converting.
+5. Confirm identification, JSON extraction, merchant URL/price accuracy, timeouts and failure behavior. OpenRouter requests require parameter support and use a 30-second per-attempt timeout with one retry. OpenAI/xAI/NIM remain available through explicit provider selection or legacy inference.
 6. Test one screenshot and one unreadable link through Wassist with the user. Only URLs/images may trigger a chat search. Do not send automated test traffic to their phone.
+
+`LLM_PROVIDER` overrides model-name inference. Without it, model IDs containing
+`/` retain legacy NIM routing. Set it explicitly for OpenRouter. When neither
+provider nor model is set, keys are considered in order xAI, OpenAI, NIM,
+OpenRouter. Demo mode checks the selected provider keys rather than any available
+key; invalid provider names fail instead of silently routing elsewhere.
 
 ## Commands
 
@@ -57,9 +64,9 @@ curl http://localhost:8787/health
 ```
 
 Check for existing listeners before starting another process. Stop the existing worker
-before restarting to load changed environment values. The current worker log is
-`sendit-worker.log` in the workspace (gitignored); older logs/screenshots in `/tmp`
-are diagnostics only and not application dependencies.
+before restarting to load changed environment values. Worker output goes to the
+terminal used to launch it; `sendit-worker.log` contains earlier runs (gitignored).
+Older logs/screenshots in `/tmp` are diagnostics only, not application dependencies.
 
 ## Secrets and portability
 
@@ -74,7 +81,7 @@ are diagnostics only and not application dependencies.
 - Existing `/dev-login` identifies by email, not verified authentication. Replace it before public use; it does not automatically link WhatsApp finds to an email account.
 - `/api/payment-result/[sessionId]` currently returns credentials to its React consumer. Remove that exposure and adapt the client together before public use. Audit logging of signed links and provider errors as well.
 - Validate externally fetched media/redirects against SSRF, add bounded download sizes/timeouts, and validate LLM-extracted prices before production use.
-- `/explore` still calls a separate Shopify catalog provider, not Tavily. Provider key detection for demo mode also needs to match the explicitly selected providers.
+- `/explore` still calls a separate Shopify catalog provider, not Tavily. The chat resolver's provider key detection is now provider-aware; Explore integration is still outstanding.
 - Media acquisition happens before demo resolution: an unreadable URL can still fail in demo mode and should request a screenshot, not invent a result. Missing-key fallback exists; automatic provider-outage fallback has not been implemented.
 - Message deduplication and hint suppression are bounded process-local caches (10,000 entries), reset on restart; add durable idempotency and outbound rate limiting before scaling. Run only one resolver worker until queue claiming is made atomic.
 - The current `identities` key includes platform. Matching phone digits do not automatically merge Wassist and direct WhatsApp accounts.

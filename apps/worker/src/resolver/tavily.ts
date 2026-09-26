@@ -1,5 +1,5 @@
 import type { CatalogCandidate } from './catalog.ts';
-import { getClient, identifyModel } from './llm.ts';
+import { getClient, identifyModel, providerOptions } from './llm.ts';
 
 /**
  * Tavily search + LLM extraction as a drop-in for serpapi.ts.
@@ -105,6 +105,7 @@ export async function searchByText(query: string, limit = 3): Promise<CatalogCan
     .join('\n\n');
 
   const completion = await getClient().chat.completions.create({
+    ...providerOptions(),
     model: identifyModel(),
     temperature: 0.1,
     top_p: 1,

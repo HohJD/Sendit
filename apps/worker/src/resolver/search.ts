@@ -11,10 +11,11 @@ export type SearchProvider = 'tavily' | 'serpapi';
  * while Tavily makes the LLM recover prices from snippets.
  */
 export function searchProvider(): SearchProvider {
-  const explicit = process.env.SEARCH_PROVIDER;
+  const explicit = process.env.SEARCH_PROVIDER?.trim();
   if (explicit === 'tavily' || explicit === 'serpapi') return explicit;
-  if (process.env.SERPAPI_API_KEY) return 'serpapi';
-  if (process.env.TAVILY_API_KEY) return 'tavily';
+  if (explicit) throw new Error('SEARCH_PROVIDER must be tavily or serpapi');
+  if (process.env.SERPAPI_API_KEY?.trim()) return 'serpapi';
+  if (process.env.TAVILY_API_KEY?.trim()) return 'tavily';
   // No key at all: still report a provider so callers get a clear env error.
   return 'serpapi';
 }

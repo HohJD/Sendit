@@ -15,12 +15,16 @@ const ENV_KEYS = [
   'OPENAI_API_KEY',
   'XAI_API_KEY',
   'NVIDIA_API_KEY',
+  'LLM_PROVIDER',
+  'OPENROUTER_API_KEY',
 ];
 let saved: Record<string, string | undefined>;
+let realFetch: typeof fetch;
 
 beforeEach(() => {
   calls = [];
   responses = [];
+  realFetch = globalThis.fetch;
   saved = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
   for (const k of ENV_KEYS) delete process.env[k];
   __resetClientForTests();
@@ -41,6 +45,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  globalThis.fetch = realFetch;
+  __resetClientForTests();
   for (const k of ENV_KEYS) {
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];
@@ -95,6 +101,24 @@ function authHeader(init: RequestInit): string | null {
 }
 
 describe('tavily searchByText', () => {
+  test('extracts Tavily product results through OpenRouter using only its model API key', async () => {
+    process.env.TAVILY_API_KEY = 'tavily-test';
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.OPENROUTER_API_KEY = 'openrouter-test';
+    process.env.IDENTIFY_MODEL = 'openai/gpt-4.1-mini';
+    responses.push({ status: 200, body: tavilyBody() });
+    responses.push({ status: 200, body: llmBody([{
+      title: 'The Long Haul Jacket', merchant: 'Taylor Stitch', price_amount: '128.00',
+      currency: 'USD', product_url: 'https://www.taylorstitch.com/products/long-haul-jacket',
+    }]) });
+    const results = await searchByText('black jacket');
+    assert.equal(calls[1].url, 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(authHeader(calls[1].init), 'Bearer openrouter-test');
+    assert.deepEqual(JSON.parse(String(calls[1].init.body)).provider, { require_parameters: true });
+    assert.equal(results[0].priceAmount, '128.00');
+    assert.equal(results[0].merchantDomain, 'taylorstitch.com');
+  });
+
   test('POSTs to tavily, then maps LLM-extracted candidates', async () => {
     process.env.TAVILY_API_KEY = 'tavily-test';
     useOpenAi();

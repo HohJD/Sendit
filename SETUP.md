@@ -1,8 +1,8 @@
 # Local setup
 
-For an agent handoff, start with root `AGENTS.md`. It maps the source files,
-provider work, verified state and remaining launch blockers. Open the whole
-`sendit` folder in Cursor; the existing local `.env` must not be overwritten.
+Start with root `AGENTS.md` for the source map, provider work, verified state
+and remaining launch blockers. Open the whole `sendit` workspace in your editor;
+the existing local `.env` must not be overwritten.
 
 ## Prerequisites
 
@@ -49,9 +49,11 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 | `PRAVA_CALLBACK_URL` | https URL Prava returns the cardholder to (the worker's `/prava/return`) |
 | `RETURN_ORIGINS` | Comma-separated front ends the return route may bounce back to |
 | `WEB_ORIGIN` | Public base URL of the dashboard — used to build the checkout link sent over WhatsApp. Defaults to `http://localhost:4321` |
-| `OPENAI_API_KEY` | Vision and extraction with an OpenAI model; optional when another model provider is used |
-| `IDENTIFY_MODEL` | `grok*` → xAI; `vendor/model` → NVIDIA NIM; bare id → OpenAI. When blank, defaults follow the available key: xAI, then OpenAI, then NIM. Verify model access before live use. |
-| `XAI_API_KEY` | Vision identify via xAI (`grok-*` models — recommended) |
+| `LLM_PROVIDER` | `openrouter`, `openai`, `xai`, or `nim`; explicit selection overrides model-name inference |
+| `OPENROUTER_API_KEY` | OpenRouter key for image identification and Tavily result extraction; no direct OpenAI/xAI key required |
+| `OPENAI_API_KEY` | Vision and extraction through the direct OpenAI API; optional with OpenRouter |
+| `IDENTIFY_MODEL` | Model ID for the selected provider. OpenRouter defaults to `openai/gpt-4.1-mini`; other defaults and legacy inference are listed below. |
+| `XAI_API_KEY` | Vision identify via the direct xAI API (`grok-*` models) |
 | `NVIDIA_API_KEY` | Vision identify via NVIDIA NIM (namespaced `IDENTIFY_MODEL`) |
 | `SERPAPI_API_KEY` | Google Shopping discovery; optional when using Tavily |
 | `TAVILY_API_KEY` | Web-search discovery — an alternative to SerpAPI |
@@ -67,19 +69,70 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 
 ## Providers
 
-Example configuration (check the model is available to your account first):
+### OpenRouter + Tavily
+
+Add these settings to the existing root `.env`, using your own key locally:
 
 ```env
-IDENTIFY_MODEL=grok-4.7
-XAI_API_KEY=...
-TAVILY_API_KEY=...
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=your-openrouter-key
+IDENTIFY_MODEL=openai/gpt-4.1-mini
+SEARCH_PROVIDER=tavily
+TAVILY_API_KEY=your-tavily-key
+DEMO_MODE=false
 ```
 
-SerpAPI + OpenAI (or NVIDIA NIM) remain fully supported — the provider follows
-the model id and the `SEARCH_PROVIDER` env. Caveat: Tavily is a general web
-index, so prices are extracted from page text by the LLM rather than coming
-from structured shopping data — products whose pages don't state a price in
-the snippet show as view-only (no Buy button).
+Do not replace a configured Tavily key with the placeholder above. Keep demo
+mode on until you are ready for paid provider calls. Restart the worker after
+changing `.env`; changing the file does not update the existing process.
+
+OpenRouter routes through `https://openrouter.ai/api/v1` using the existing
+OpenAI SDK. The SDK package does not require a direct OpenAI API key: requests
+use `OPENROUTER_API_KEY` exclusively when this provider is selected. The model
+reads the image, Tavily discovers store pages, and the model extracts products
+from those pages. Wassist and Prava do not change.
+
+The public OpenRouter model catalog lists `openai/gpt-4.1-mini` with image input
+and `response_format` support (checked 2026-09-26). Authenticated access, account
+credits and actual result quality still need a live test. Any replacement model
+must support images and JSON output. Both calls include
+`provider.require_parameters=true` so unsupported parameters are not silently
+ignored; an incompatible provider/model returns an error instead. OpenRouter
+requests have a 30-second per-attempt timeout and at most one retry.
+
+### Provider selection
+
+| `LLM_PROVIDER` | Key | Default model when `IDENTIFY_MODEL` is blank |
+|---|---|---|
+| `openrouter` | `OPENROUTER_API_KEY` | `openai/gpt-4.1-mini` |
+| `openai` | `OPENAI_API_KEY` | `gpt-4.1-mini` |
+| `xai` | `XAI_API_KEY` | `grok-4.7` |
+| `nim` | `NVIDIA_API_KEY` | `moonshotai/kimi-k2.6` |
+
+Without `LLM_PROVIDER`, existing behavior is retained: an explicit `grok*` model
+selects xAI, a model containing `/` selects NIM, and a bare model selects OpenAI.
+**Set `LLM_PROVIDER=openrouter` for OpenRouter's namespaced model IDs.** When
+both provider and model are blank, available keys are checked in order: xAI,
+OpenAI, NIM, OpenRouter. This preserves existing setups. Invalid provider names
+fail explicitly; a failed API call does not silently switch providers.
+
+`SEARCH_PROVIDER` selects Tavily or SerpAPI independently. Tavily uses the selected
+model for extraction; its prices come from page snippets rather than structured
+shopping data. Products without a price are view-only. Model extraction does not
+guarantee that prices are current or correct.
+
+### Offline checks and first live test
+
+```bash
+pnpm --filter @prava/worker test
+pnpm --filter @prava/worker exec tsc --noEmit
+pnpm resolve -- /absolute/path/to/product.png
+```
+
+The first two commands mock provider responses and do not contact WhatsApp. The
+last command uses your configured providers and may incur charges when demo mode
+is off; it does not send a chat reply or start a checkout. Verify the result there
+before asking the user to send one real screenshot in the connected WhatsApp chat.
 
 ## Database
 
@@ -171,13 +224,17 @@ it does not mock Prava or guarantee a successful merchant checkout. Media is
 still acquired first, so an unreadable link requests a screenshot rather than
 returning a canned result.
 
-Demo mode also activates if all vision keys are missing
-(`OPENAI_API_KEY`/`XAI_API_KEY`/`NVIDIA_API_KEY`) or both search keys are missing
-(`TAVILY_API_KEY`/`SERPAPI_API_KEY`), even with `DEMO_MODE=false`.
-For real matching, configure one model provider and one search provider, select
-them with `IDENTIFY_MODEL` and `SEARCH_PROVIDER`, then set `DEMO_MODE=false`.
-Restart the worker after changing `.env`. API outages with configured keys do
-not currently trigger automatic canned fallback.
+Demo mode also activates when the selected model provider's key or the selected
+search provider's key is missing, even with `DEMO_MODE=false`. For example,
+`LLM_PROVIDER=openrouter` requires `OPENROUTER_API_KEY`; having an OpenAI key
+instead does not satisfy it. A selected Tavily backend requires `TAVILY_API_KEY`,
+not a SerpAPI key. The reason identifies the missing variable without logging
+its value.
+
+For real matching, configure `LLM_PROVIDER`, `IDENTIFY_MODEL`, `SEARCH_PROVIDER`
+and the two corresponding keys, then set `DEMO_MODE=false`. Restart the worker
+after changing `.env`. API outages with configured keys do not currently trigger
+automatic canned fallback.
 
 ## Prava sandbox
 
@@ -232,9 +289,10 @@ Supabase. Resolve the authentication and credential-exposure blockers in
 ## Continuing on this Mac or another machine
 
 Cursor on this Mac can open this folder and use the existing toolchain and local
-Postgres database. `apps/web/.env` points to the root `.env`. Current worker output
-is in `sendit-worker.log` (gitignored). Check port 8787 before launching another
-worker; a second instance must not compete for the same queue.
+Postgres database. `apps/web/.env` points to the root `.env`. Worker output goes
+to its launching terminal; `sendit-worker.log` holds earlier runs (gitignored).
+Check port 8787 before launching another worker; a second instance must not
+compete for the same queue.
 
 A GitHub clone contains source, migrations, static assets and deployment helpers,
 but not the local secrets, database records or logged-in service accounts. On a
