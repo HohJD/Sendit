@@ -44,7 +44,7 @@ export async function resolve(params: {
     };
   }
 
-  let candidates = await searchByText(signal.searchQuery);
+  let candidates = await searchByText(signal.searchQuery, 3, { brand: signal.brand });
 
   // A very specific query can match nothing at all. Retry once on the coarse
   // description before giving up — a 'similar' match beats an empty card, and
@@ -52,7 +52,7 @@ export async function resolve(params: {
   if (candidates.length === 0) {
     const coarse = [signal.brand, signal.color, signal.productType].filter(Boolean).join(' ');
     if (coarse && coarse !== signal.searchQuery) {
-      candidates = await searchByText(coarse);
+      candidates = await searchByText(coarse, 3, { brand: signal.brand });
     }
   }
 

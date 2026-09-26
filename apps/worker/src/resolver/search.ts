@@ -20,6 +20,13 @@ export function searchProvider(): SearchProvider {
   return 'serpapi';
 }
 
-export async function searchByText(query: string, limit = 3): Promise<CatalogCandidate[]> {
-  return searchProvider() === 'tavily' ? tavilySearch(query, limit) : serpapiSearch(query, limit);
+export async function searchByText(
+  query: string,
+  limit = 3,
+  opts: { brand?: string | null } = {},
+): Promise<CatalogCandidate[]> {
+  // Serpapi ignores the brand hint — Google Shopping has no use for it.
+  return searchProvider() === 'tavily'
+    ? tavilySearch(query, limit, opts)
+    : serpapiSearch(query, limit);
 }

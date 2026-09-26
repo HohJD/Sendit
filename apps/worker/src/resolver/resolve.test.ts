@@ -2,6 +2,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from './resolve.ts';
 import { __resetClientForTests } from './llm.ts';
+import { __setLookupForTests } from './enrich.ts';
 
 const KEYS = ['DEMO_MODE', 'LLM_PROVIDER', 'IDENTIFY_MODEL', 'SEARCH_PROVIDER', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'NVIDIA_API_KEY', 'SERPAPI_API_KEY', 'TAVILY_API_KEY'];
 let saved: Record<string, string | undefined>;
@@ -14,8 +15,8 @@ beforeEach(() => {
   calls = [];
   realFetch = globalThis.fetch;
   __resetClientForTests();
-
-  // The whole pipeline needs both keys for demo mode to stay off.
+  // Enrichment/Shopify probing does a DNS check — never hit real DNS in tests.
+  __setLookupForTests(async () => ({ address: '93.184.216.34', family: 4 }) as never);
   process.env.OPENAI_API_KEY = 'oai';
   process.env.SERPAPI_API_KEY = 'serp';
 
@@ -91,6 +92,62 @@ describe('resolve (OpenRouter + Tavily)', () => {
     assert.equal(result.resolution, 'exact');
     assert.equal(result.candidates[0].productUrl, productUrl);
     assert.equal(result.candidates[0].priceAmount, '128.00');
+  });
+
+  test('brand + priceless top candidate → Shopify lookup on the brand host', async () => {
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.SERPAPI_API_KEY;
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.IDENTIFY_MODEL = 'openai/gpt-4.1-mini';
+    process.env.SEARCH_PROVIDER = 'tavily';
+    process.env.OPENROUTER_API_KEY = 'router-test';
+    process.env.TAVILY_API_KEY = 'tavily-test';
+    process.env.DEMO_MODE = 'false';
+
+    const signal = { brand: 'Overtime', product_type: 'tee', color: 'black',
+      distinguishing_features: ['O logo'], search_query: 'Overtime classic tee black O logo', confidence: 'high' };
+    const candidates = [{ title: 'Some tee', merchant: 'Other', product_url: 'https://other.com/products/a' }];
+
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      calls.push({ url, init: init ?? {} });
+      let body: unknown;
+      let status = 200;
+      if (url === 'https://api.tavily.com/search') {
+        body = { results: [
+          { url: 'https://other.com/products/a', title: 'Some tee', content: 'x' },
+          { url: 'https://other.com/products/b', title: 'Other tee', content: 'x' },
+          { url: 'https://shop.overtime.tv/collections/tees', title: 'Tees', content: 'store' },
+        ] };
+      } else if (url.includes('openrouter.ai')) {
+        const which = calls.filter((c) => c.url.includes('openrouter.ai')).length === 1 ? signal : { candidates };
+        body = { id: 'm', object: 'chat.completion', choices: [{ index: 0,
+          finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify(which) } }] };
+      } else if (url === 'https://other.com/products/a') {
+        return new Response('<html><body>no price</body></html>', { status: 200 });
+      } else if (url === 'https://shop.overtime.tv/meta.json') {
+        body = { name: 'Overtime Shop', currency: 'USD' };
+      } else if (url.startsWith('https://shop.overtime.tv/search/suggest.json')) {
+        body = { resources: { results: { products: [
+          { title: 'Classic Tee', url: '/products/classic-tee', price: '40.00' },
+        ] } } };
+      } else {
+        status = 404;
+        body = {};
+      }
+      return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
+        status,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const imageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+    const result = await resolve({ media: { imageBase64, mediaType: 'image/png' } });
+    assert.equal(result.candidates[0].productUrl, 'https://shop.overtime.tv/products/classic-tee');
+    assert.equal(result.candidates[0].priceAmount, '40.00');
+    assert.equal(result.candidates[0].currency, 'USD');
+    // The Shopify probe hit the brand host, not the other store.
+    assert.ok(calls.some((c) => c.url === 'https://shop.overtime.tv/meta.json'));
   });
 
   test('forced demo mode never calls OpenRouter or search', async () => {

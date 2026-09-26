@@ -43,6 +43,10 @@ merchant search is unlikely to find the exact item — don't inflate it to seem 
 e.g. "Nike Air Max 90 white leather sneakers", not a description of the scene. Name the
 fabric or material whenever you can tell it (denim, linen, leather, knit) — it narrows a
 shopping search far more than colour does.
+Read any text, wordmark or logo printed on the product, its label, or packaging — that text is
+almost always the brand or product line. Put it in "brand" (exact spelling as printed) and
+start "search_query" with it, e.g. "Overtime classic black tee white O logo". Only return
+brand: null when no name, logo or wordmark is legible anywhere in the frame.
 
 Respond with ONLY a JSON object matching this exact shape, no other text:
 {

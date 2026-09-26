@@ -80,7 +80,7 @@ async function readCapped(res: Response): Promise<string> {
  * the same registrable domain (bare host compare — www↔apex is fine, an
  * off-domain bounce is not).
  */
-async function fetchGuarded(url: string): Promise<{ html: string; finalUrl: URL }> {
+export async function safeFetch(url: string): Promise<{ html: string; finalUrl: URL }> {
   let current = new URL(url);
   if (!/^https?:$/.test(current.protocol)) throw new Error(`refusing ${current.protocol}`);
 
@@ -207,7 +207,7 @@ function normalisePrice(raw: string | number | undefined | null): string | null 
 }
 
 async function enrichOne(candidate: CatalogCandidate): Promise<void> {
-  const page = await fetchGuarded(candidate.productUrl);
+  const page = await safeFetch(candidate.productUrl);
 
   let price: string | null = null;
   let currency: string | null = null;

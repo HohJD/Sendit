@@ -1,6 +1,7 @@
 import type { CatalogCandidate } from './catalog.ts';
 import { getClient, identifyModel, providerOptions } from './llm.ts';
 import { enrichCandidates } from './enrich.ts';
+import { findShopifyProduct } from './shopify.ts';
 
 /**
  * Tavily search + LLM extraction as a drop-in for serpapi.ts.
@@ -47,7 +48,58 @@ const EXCLUDE_DOMAINS = [
   'stockx.com',
   'goat.com',
   'farfetch.com',
+  // Big-box / department stores — checkouts the agent can't drive.
+  'target.com',
+  'bestbuy.com',
+  'macys.com',
+  'nordstrom.com',
+  'kohls.com',
+  'zappos.com',
+  'asos.com',
+  'shop.app',
 ];
+
+/** Strip tracking params/hash/trailing slash so a product URL is canonical. */
+function canonicalise(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    for (const key of [...u.searchParams.keys()]) {
+      if (key !== 'variant') u.searchParams.delete(key);
+    }
+    u.hash = '';
+    if (u.pathname.length > 1 && u.pathname.endsWith('/')) {
+      u.pathname = u.pathname.slice(0, -1);
+    }
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+const PRODUCT_PATH = /\/(products?|p|dp|item|items)\/[^/?]+|\/shop\/[^/]+\/[^/]+/i;
+const NON_PRODUCT_PATH = /^\/?$|^\/(collections?|category|c|search|pages?|blogs?|tags?)(\/|$)/i;
+const NON_PRODUCT_HOST = /^(shop\.app|(.*\.)?(google|bing|youtube)\.com|(.*\.)?pinterest\.[a-z.]+)$/i;
+
+/**
+ * Is this URL plausibly a single-product page? Used to keep collections,
+ * store roots and aggregator hosts out of the extraction — and out of the
+ * candidate list even if the model returns them anyway.
+ */
+export function isProductPage(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  if (NON_PRODUCT_HOST.test(u.hostname)) return false;
+  const path = u.pathname.replace(/\/$/, '') || '/';
+  if (NON_PRODUCT_PATH.test(path)) return false;
+  if (PRODUCT_PATH.test(path)) return true;
+  const segments = path.split('/').filter(Boolean);
+  return segments.length >= 2 && /\.html?$/i.test(path);
+}
 
 /** Tavily's exclude_domains doesn't reliably cover subdomains (us.shein.com), so we re-check. */
 function isExcludedDomain(domain: string | null): boolean {
@@ -100,7 +152,16 @@ function requireEnv(name: string): string {
   return value;
 }
 
-export async function searchByText(query: string, limit = 3): Promise<CatalogCandidate[]> {
+export interface SearchOptions {
+  /** Identified brand — used to prefer brand-domain candidates and origins. */
+  brand?: string | null;
+}
+
+export async function searchByText(
+  query: string,
+  limit = 3,
+  opts: SearchOptions = {},
+): Promise<CatalogCandidate[]> {
   const apiKey = requireEnv('TAVILY_API_KEY');
 
   const res = await fetch(TAVILY_URL, {
@@ -111,8 +172,8 @@ export async function searchByText(query: string, limit = 3): Promise<CatalogCan
     },
     body: JSON.stringify({
       query: `${query} buy`,
-      search_depth: 'basic',
-      max_results: 8,
+      search_depth: 'advanced',
+      max_results: 10,
       include_images: true,
       include_raw_content: false,
       exclude_domains: EXCLUDE_DOMAINS,
@@ -124,11 +185,52 @@ export async function searchByText(query: string, limit = 3): Promise<CatalogCan
   }
 
   const body = (await res.json()) as TavilyResponse;
-  const results = body.results ?? [];
+  const rawResults = body.results ?? [];
+
+  // Canonicalise + dedupe before anything downstream: Tavily happily returns
+  // the same product page three times wearing different tracking params.
+  const seen = new Set<string>();
+  const results: TavilyResult[] = [];
+  for (const r of rawResults) {
+    const url = canonicalise(r.url);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    if (isExcludedDomain(domainOf(url))) continue;
+    results.push({ ...r, url });
+  }
   if (results.length === 0) return [];
 
-  const listing = results
-    .map((r, i) => `${i + 1}. ${r.title ?? ''}\n   ${r.url ?? ''}\n   ${r.content ?? ''}`)
+  const brandToken = (opts.brand ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  // Hosts worth probing for Shopify JSON: the brand domain, or any host
+  // containing a distinctive query token (brand names often survive only as
+  // query text when identify() can't isolate a brand field).
+  const hostTokens = [
+    brandToken,
+    ...query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 4),
+  ].filter(Boolean);
+  const onBrandHost = (url: string | undefined) =>
+    !!brandToken && !!url && domainOf(url)?.includes(brandToken);
+
+  // Only single-product pages may become candidates. When there aren't at
+  // least two, collection/root results are still shown to the model — marked
+  // — purely as brand/store context.
+  const productResults = results.filter((r) => r.url && isProductPage(r.url));
+  const contextResults = results.filter((r) => r.url && !isProductPage(r.url));
+  const shown =
+    productResults.length >= 2
+      ? productResults.map((r) => ({ r, note: '' }))
+      : [
+          ...productResults.map((r) => ({ r, note: '' })),
+          ...contextResults.map((r) => ({ r, note: '   [category page — not a product]' })),
+        ];
+
+  const listing = shown
+    .map(({ r, note }, i) => `${i + 1}. ${r.title ?? ''}\n   ${r.url ?? ''}\n   ${r.content ?? ''}${note}`)
     .join('\n\n');
 
   const completion = await getClient().chat.completions.create({
@@ -165,8 +267,9 @@ export async function searchByText(query: string, limit = 3): Promise<CatalogCan
   }
 
   // The model only ever sees URLs from Tavily, but trust nothing: a candidate
-  // whose URL isn't in the result set is a hallucination and gets dropped.
-  const validUrls = new Set(results.map((r) => r.url).filter(Boolean));
+  // whose canonical URL isn't a product page Tavily returned is a
+  // hallucination — or a collection page — and gets dropped either way.
+  const validUrls = new Set(productResults.map((r) => r.url).filter(Boolean));
   const imagesByUrl = new Map<string, string[]>();
   for (const r of results) {
     if (r.url) {
@@ -178,24 +281,69 @@ export async function searchByText(query: string, limit = 3): Promise<CatalogCan
   const candidates: CatalogCandidate[] = [];
   for (const c of parsed.candidates ?? []) {
     if (candidates.length >= limit) break;
-    if (!c.product_url || !validUrls.has(c.product_url)) continue;
-    const merchantDomain = domainOf(c.product_url);
+    const canonical = canonicalise(c.product_url);
+    if (!canonical || !validUrls.has(canonical)) continue;
+    const merchantDomain = domainOf(canonical);
     if (isExcludedDomain(merchantDomain)) continue;
 
     candidates.push({
-      productId: c.product_url,
+      productId: canonical,
       title: c.title ?? 'Unknown product',
       merchant: c.merchant ?? null,
       merchantDomain,
       priceAmount: normaliseAmount(c.price_amount),
       currency: c.currency ?? null,
-      imageUrl: imagesByUrl.get(c.product_url)?.[0] ?? body.images?.[0] ?? null,
-      productUrl: c.product_url,
+      imageUrl: imagesByUrl.get(canonical)?.[0] ?? body.images?.[0] ?? null,
+      productUrl: canonical,
     });
+  }
+
+  // Priced candidates first, then brand-domain matches — a view-only card can
+  // never reach checkout, so it should never lead.
+  candidates.sort((a, b) => rank(b) - rank(a));
+  function rank(c: CatalogCandidate): number {
+    return (c.priceAmount ? 2 : 0) + (onBrandHost(c.productUrl) ? 1 : 0);
   }
 
   // Snippets rarely carry prices — recover them from the product pages
   // directly so candidates render buyable instead of view-only.
   await enrichCandidates(candidates);
+
+  // Still no priced top card — or the top card isn't on a host that mentions
+  // the brand/query? The store is almost certainly Shopify — ask it directly
+  // for the product instead of leaving the share view-only or off-brand.
+  const topOnKnownHost =
+    !!candidates[0] &&
+    hostTokens.some((t) => domainOf(candidates[0].productUrl)?.includes(t));
+  if (!candidates[0]?.priceAmount || !topOnKnownHost) {
+    const counts = new Map<string, number>();
+    for (const r of results) {
+      const host = r.url ? domainOf(r.url) : null;
+      if (host) counts.set(host, (counts.get(host) ?? 0) + 1);
+    }
+    const origins = [...counts.entries()]
+      .sort((a, b) => {
+        const aBrand = hostTokens.some((t) => a[0].includes(t)) ? 1 : 0;
+        const bBrand = hostTokens.some((t) => b[0].includes(t)) ? 1 : 0;
+        return bBrand - aBrand || b[1] - a[1];
+      })
+      .map(([host]) => `https://${host}`);
+
+    for (const origin of origins.slice(0, 2)) {
+      const found = await findShopifyProduct(origin, query).catch(() => null);
+      if (!found) continue;
+      const foundOnTokenHost = hostTokens.some((t) =>
+        domainOf(found.productUrl)?.includes(t),
+      );
+      // Jump the queue only for a priced product on a brand/query-matching
+      // host, or when the alternative is an empty/view-only list.
+      if (found.priceAmount && (!candidates[0]?.priceAmount || foundOnTokenHost)) {
+        candidates.unshift(found);
+        break;
+      }
+      if (candidates.length === 0) candidates.push(found);
+    }
+  }
+
   return candidates;
 }
