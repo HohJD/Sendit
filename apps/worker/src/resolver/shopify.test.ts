@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { findShopifyProduct } from './shopify.ts';
+import { findShopifyProduct, isShopifyStore, __resetShopifyCacheForTests } from './shopify.ts';
 import { __setLookupForTests } from './enrich.ts';
 
 let calls: string[];
@@ -11,6 +11,7 @@ beforeEach(() => {
   calls = [];
   responses = [];
   realFetch = globalThis.fetch;
+  __resetShopifyCacheForTests();
   // safeFetch does a DNS check first — never let tests hit real DNS.
   __setLookupForTests(async () => ({ address: '93.184.216.34', family: 4 }) as never);
 
@@ -88,5 +89,35 @@ describe('findShopifyProduct', () => {
     __setLookupForTests(async () => ({ address: '10.0.0.5', family: 4 }) as never);
     assert.equal(await findShopifyProduct('http://internal.example', 'tee'), null);
     assert.equal(calls.length, 0);
+  });
+});
+
+describe('isShopifyStore', () => {
+  test('true when meta.json returns shop info', async () => {
+    responses.push({ status: 200, body: { name: 'Overtime Shop', currency: 'USD' } });
+    assert.equal(await isShopifyStore('https://shop.overtime.tv'), true);
+    assert.equal(calls.length, 1);
+  });
+
+  test('falls through to the HTML sniff on a meta.json miss', async () => {
+    responses.push({ status: 404, body: {} });
+    responses.push({ status: 200, body: '<html><script src="https://cdn.shopify.com/x.js"></script></html>' });
+    assert.equal(await isShopifyStore('https://brand.example'), true);
+  });
+
+  test('false for a plain non-Shopify site and never throws', async () => {
+    responses.push({ status: 404, body: {} });
+    responses.push({ status: 200, body: '<html><body>wordpress blog</body></html>' });
+    assert.equal(await isShopifyStore('https://commedesgaarcons.example'), false);
+    // Unreachable origin — still false, not a throw.
+    assert.equal(await isShopifyStore('https://dead.example'), false);
+  });
+
+  test('caches per origin — second call makes no requests', async () => {
+    responses.push({ status: 200, body: { name: 'Store' } });
+    assert.equal(await isShopifyStore('https://cached.example'), true);
+    const afterFirst = calls.length;
+    assert.equal(await isShopifyStore('https://cached.example'), true);
+    assert.equal(calls.length, afterFirst);
   });
 });

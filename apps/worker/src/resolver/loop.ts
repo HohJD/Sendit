@@ -88,6 +88,7 @@ async function processShare(share: Share): Promise<void> {
             imageUrl: candidate.imageUrl,
             productUrl: candidate.productUrl,
             catalogProductId: candidate.productId,
+            checkoutSupported: candidate.checkoutSupported,
           })),
         )
         .returning({ id: items.id, rank: items.rank });
@@ -123,17 +124,31 @@ async function processShare(share: Share): Promise<void> {
           )
         : 'price unknown';
 
+    // A priced match on a non-Shopify store can never be bought — offering
+    // Approve would dead-end at checkout, so the card is view-only.
+    const checkoutable = top.checkoutSupported !== false;
+
     const body =
       `Best match:\n${top.title}\n${top.merchant ?? 'Unknown merchant'} — ${price}\n\n` +
-      'Test purchase, no real money (Prava sandbox). Approve to continue.';
+      (checkoutable
+        ? 'Test purchase, no real money (Prava sandbox). Approve to continue.'
+        : "(view only — this store isn't supported for agent checkout yet)");
 
     await notify(
       share,
       (to) =>
-        getChannel(share.platform).sendButtons(to, body, [
-          { id: `approve:${topItemId}`, title: 'Approve' },
-          { id: `reject:${share.id}`, title: 'Not this one' },
-        ]),
+        getChannel(share.platform).sendButtons(
+          to,
+          body,
+          checkoutable
+            ? [
+                { id: `approve:${topItemId}`, title: 'Approve' },
+                { id: `reject:${share.id}`, title: 'Not this one' },
+              ]
+            : // Channels require ≥1 button — rejection alone is the only
+              // choice that makes sense for a store we can't buy from.
+              [{ id: `reject:${share.id}`, title: 'Not this one' }],
+        ),
       'buttons',
     );
   } catch (err) {

@@ -1,4 +1,5 @@
 import {
+  boolean,
   pgEnum,
   pgTable,
   text,
@@ -171,6 +172,11 @@ export const items = pgTable(
      * identifier for re-querying, not a cache key.
      */
     catalogProductId: text('catalog_product_id'),
+    /**
+     * Whether the merchant runs a Shopify storefront the checkout agent can
+     * drive. null = unprobed (allow); false = view-only.
+     */
+    checkoutSupported: boolean('checkout_supported'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('items_share_rank').on(t.shareId, t.rank)],

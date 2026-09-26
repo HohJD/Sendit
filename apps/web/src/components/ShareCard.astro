@@ -151,7 +151,7 @@ const sourceLine = share.sourceUrl || share.inputText || null;
             </p>
           )}
 
-          {buyable(best) ? (
+          {buyable(best) && best.checkoutSupported !== false ? (
             <>
               <a
                 href={`/checkout/${best.id}`}
@@ -167,6 +167,20 @@ const sourceLine = share.sourceUrl || share.inputText || null;
               >
                 View at {best.merchant ?? 'merchant'}
               </a>
+            </>
+          ) : best.checkoutSupported === false ? (
+            <>
+              <a
+                href={best.productUrl}
+                target="_blank"
+                rel="noopener nofollow"
+                class="mt-5 block rounded-full border border-hairline px-5 py-3 text-center text-[13px] font-medium text-ink motion hover:border-ink"
+              >
+                View at {best.merchant ?? 'merchant'}
+              </a>
+              <p class="mt-3 text-[13px] leading-relaxed text-ink-soft">
+                Checkout agent doesn't support this store yet
+              </p>
             </>
           ) : (
             <a

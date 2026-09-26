@@ -4,6 +4,7 @@ import { searchByText } from './tavily.ts';
 import { searchProvider } from './search.ts';
 import { __resetClientForTests } from './llm.ts';
 import { __setLookupForTests } from './enrich.ts';
+import { __resetShopifyCacheForTests } from './shopify.ts';
 
 let calls: Array<{ url: string; init: RequestInit }>;
 let responses: Array<{ status: number; body: unknown }>;
@@ -30,6 +31,7 @@ beforeEach(() => {
   saved = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
   for (const k of ENV_KEYS) delete process.env[k];
   __resetClientForTests();
+  __resetShopifyCacheForTests();
   // Enrichment does a DNS check before fetching — never let tests hit real DNS.
   __setLookupForTests(async () => ({ address: '93.184.216.34', family: 4 }) as never);
 
@@ -311,6 +313,49 @@ describe('tavily searchByText', () => {
     assert.equal(out[0].priceAmount, '40.00');
     assert.equal(out[0].currency, 'USD');
     assert.equal(out[0].imageUrl, 'https://shop.overtime.tv/img/tee.jpg');
+  });
+
+  test('a priced non-Shopify candidate ranks below a priced Shopify one', async () => {
+    process.env.TAVILY_API_KEY = 'tavily-test';
+    useOpenAi();
+    // URL-dispatched mock: the Shopify probes run concurrently, so a response
+    // queue would be a race.
+    globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init: init ?? {} });
+      const json = { headers: { 'content-type': 'application/json' } };
+      if (url === 'https://api.tavily.com/search') {
+        return new Response(JSON.stringify({
+          results: [
+            { title: 'Knock-off tee', url: 'https://commedesgaarcons.example/product/tee', content: '$43' },
+            { title: 'Real tee', url: 'https://shop.realbrand.com/products/tee', content: '$40' },
+          ],
+        }), { status: 200, ...json });
+      }
+      if (url.includes('openai.com')) {
+        // Model order puts the knock-off first — it has a price too.
+        return new Response(JSON.stringify(llmBody([
+          { title: 'Knock-off tee', price_amount: '43.00', currency: 'USD', product_url: 'https://commedesgaarcons.example/product/tee' },
+          { title: 'Real tee', price_amount: '40.00', currency: 'USD', product_url: 'https://shop.realbrand.com/products/tee' },
+        ])), { status: 200, ...json });
+      }
+      if (url === 'https://shop.realbrand.com/meta.json') {
+        return new Response(JSON.stringify({ name: 'Real Brand', currency: 'USD' }), { status: 200, ...json });
+      }
+      if (url === 'https://commedesgaarcons.example/') {
+        return new Response('<html><body>custom cart</body></html>', { status: 200 });
+      }
+      return new Response('{}', { status: 404 });
+    };
+
+    // The query token keeps the priced top card on a "known" host so the
+    // Shopify-fallback path doesn't also fire.
+    const out = await searchByText('commedesgaarcons tee', 3);
+    assert.equal(out.length, 2);
+    assert.equal(out[0].productUrl, 'https://shop.realbrand.com/products/tee');
+    assert.equal(out[0].checkoutSupported, true);
+    assert.equal(out[1].productUrl, 'https://commedesgaarcons.example/product/tee');
+    assert.equal(out[1].checkoutSupported, false);
   });
 
   test('throws when TAVILY_API_KEY is unset', async () => {

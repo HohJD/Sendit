@@ -83,6 +83,10 @@ describe('resolve (OpenRouter + Tavily)', () => {
       'https://openrouter.ai/api/v1/chat/completions',
       'https://api.tavily.com/search',
       'https://openrouter.ai/api/v1/chat/completions',
+      // Post-extraction: isShopifyStore probes the candidate origin (meta.json,
+      // then the HTML sniff) before candidates are ranked checkout-capable.
+      'https://store.example/meta.json',
+      'https://store.example/',
     ]);
     assert.equal(new Headers(calls[0].init.headers).get('authorization'), 'Bearer router-test');
     assert.equal(new Headers(calls[1].init.headers).get('authorization'), 'Bearer tavily-test');

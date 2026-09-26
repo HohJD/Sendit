@@ -85,6 +85,28 @@ async function detectShopify(origin: string): Promise<{ shopify: boolean; curren
   return { shopify: false, currency: null };
 }
 
+/**
+ * "Can the checkout agent drive this store?" — same probe as detectShopify,
+ * cached in-process (10 min TTL) because a resolve can hit the same origin
+ * once per candidate. Never throws: unreachable counts as not-Shopify.
+ */
+const SHOPIFY_CHECK_TTL_MS = 10 * 60 * 1000;
+const shopifyCache = new Map<string, { value: boolean; expiresAt: number }>();
+
+export async function isShopifyStore(origin: string): Promise<boolean> {
+  const base = origin.replace(/\/$/, '');
+  const cached = shopifyCache.get(base);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const { shopify } = await detectShopify(base).catch(() => ({ shopify: false, currency: null }));
+  shopifyCache.set(base, { value: shopify, expiresAt: Date.now() + SHOPIFY_CHECK_TTL_MS });
+  return shopify;
+}
+
+/** Test-only: clear the origin cache between cases. */
+export function __resetShopifyCacheForTests(): void {
+  shopifyCache.clear();
+}
+
 export async function findShopifyProduct(
   origin: string,
   query: string,

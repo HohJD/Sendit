@@ -77,6 +77,12 @@ export interface CatalogCandidate {
   currency: string | null;
   imageUrl: string | null;
   productUrl: string;
+  /**
+   * True when the merchant runs a Shopify storefront the checkout agent can
+   * drive; false when probed and not Shopify; undefined when unprobed
+   * (treated as "allow" — unknown must not dead-end a priced card).
+   */
+  checkoutSupported?: boolean;
 }
 
 async function callTool(name: string, args: Record<string, unknown>): Promise<unknown> {

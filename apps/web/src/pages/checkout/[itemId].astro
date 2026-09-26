@@ -47,6 +47,9 @@ let session: Awaited<ReturnType<typeof createSession>> | null = null;
 
 if (!item.priceAmount || !item.currency) {
   error = 'This match has no price, so it cannot be checked out.';
+} else if (item.checkoutSupported === false) {
+  error =
+    "This store isn't supported by the checkout agent yet (only Shopify checkouts are automated).";
 } else if (!user?.email) {
   error = 'Your account has no email address, which Prava requires to open a session.';
 } else {

@@ -50,6 +50,13 @@
       "when": 1790415872115,
       "tag": "0006_simple_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790428795841,
+      "tag": "0007_clumsy_doctor_faustus",
+      "breakpoints": true
     }
   ]
 }

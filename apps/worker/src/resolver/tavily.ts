@@ -1,7 +1,7 @@
 import type { CatalogCandidate } from './catalog.ts';
 import { getClient, identifyModel, providerOptions } from './llm.ts';
 import { enrichCandidates } from './enrich.ts';
-import { findShopifyProduct } from './shopify.ts';
+import { findShopifyProduct, isShopifyStore } from './shopify.ts';
 
 /**
  * Tavily search + LLM extraction as a drop-in for serpapi.ts.
@@ -332,6 +332,8 @@ export async function searchByText(
     for (const origin of origins.slice(0, 2)) {
       const found = await findShopifyProduct(origin, query).catch(() => null);
       if (!found) continue;
+      // Proven Shopify by detection — keep it marked even if the probe below flakes.
+      found.checkoutSupported = true;
       const foundOnTokenHost = hostTokens.some((t) =>
         domainOf(found.productUrl)?.includes(t),
       );
@@ -344,6 +346,43 @@ export async function searchByText(
       if (candidates.length === 0) candidates.push(found);
     }
   }
+
+  // Flag which stores the checkout agent can actually drive. A priced product
+  // on a non-Shopify storefront can never be bought — it must not outrank a
+  // Shopify one just because it carried a price.
+  const probeOrigins = [
+    ...new Set(
+      candidates
+        .slice(0, 5)
+        .map((c) => domainOf(c.productUrl))
+        .filter((h): h is string => !!h)
+        .map((h) => `https://${h}`),
+    ),
+  ];
+  const probes = await Promise.allSettled(probeOrigins.map((o) => isShopifyStore(o)));
+  const supported = new Map<string, boolean>(
+    probeOrigins.map((o, i) => [
+      o,
+      probes[i]?.status === 'fulfilled' ? probes[i].value : false,
+    ]),
+  );
+  for (const c of candidates) {
+    const host = domainOf(c.productUrl);
+    // Beyond the 5 probed origins the flag stays undefined — unknown, not false.
+    c.checkoutSupported ??= host ? supported.get(`https://${host}`) : undefined;
+  }
+
+  candidates.sort((a, b) => finalRank(b) - finalRank(a));
+  function finalRank(c: CatalogCandidate): number {
+    return (
+      (c.checkoutSupported && c.priceAmount ? 4 : 0) +
+      (c.priceAmount ? 2 : 0) +
+      (onBrandHost(c.productUrl) ? 1 : 0)
+    );
+  }
+  console.log(
+    `tavily: ${candidates.length} candidates, ${[...supported.values()].filter(Boolean).length} on Shopify (agent-checkout capable)`,
+  );
 
   return candidates;
 }
