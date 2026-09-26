@@ -235,6 +235,16 @@ it does not mock Prava or guarantee a successful merchant checkout. Media is
 still acquired first, so an unreadable link requests a screenshot rather than
 returning a canned result.
 
+### Passkey fallback (`DEMO_FALLBACK_CARD`)
+
+Prava's sandbox passkey step sometimes fails device binding on stage. With
+`DEMO_FALLBACK_CARD=true` the checkout page offers "Continue with sandbox test
+card": it runs the same agentic merchant checkout using Prava's published
+sandbox test card (docs.prava.space/api-reference/test-cards), skips the
+passkey/mint step, does not settle with Prava (the session is revoked), and
+labels the outcome in the dashboard and chat. Sandbox-only and off by default —
+never enable it in production or on the deployed site.
+
 Demo mode also activates when the selected model provider's key or the selected
 search provider's key is missing, even with `DEMO_MODE=false`. For example,
 `LLM_PROVIDER=openrouter` requires `OPENROUTER_API_KEY`; having an OpenAI key

@@ -78,6 +78,7 @@ Older logs/screenshots in `/tmp` are diagnostics only, not application dependenc
 ## Guardrails and remaining blockers
 
 - Sandbox only. Never place a real order, switch to production payment credentials or replay approvals without specific permission. Do not equate a sandbox decline with a successful purchase.
+- `DEMO_FALLBACK_CARD=true` (off by default) lets the checkout page bypass a failing Prava passkey step with Prava's published sandbox test card — the agent still drives the real merchant checkout, but nothing is minted or settled with Prava (the session is revoked) and the outcome is labelled "[sandbox test card — passkey skipped]". Demo stages only; it is deliberately not pushed by `scripts/vercel-env.sh`, so it can never reach the deployed site.
 - Existing `/dev-login` identifies by email, not verified authentication. Replace it before public use; it does not automatically link WhatsApp finds to an email account.
 - `/api/payment-result/[sessionId]` currently returns credentials to its React consumer. Remove that exposure and adapt the client together before public use. Audit logging of signed links and provider errors as well.
 - Validate externally fetched media/redirects against SSRF, add bounded download sizes/timeouts, and validate LLM-extracted prices before production use.

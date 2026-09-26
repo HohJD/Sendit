@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { db, checkouts } from '@prava/db';
 import { and, eq } from 'drizzle-orm';
 import { getPaymentResult, PravaError } from '@prava/worker/payments/prava';
+import { DEMO_FALLBACK_ENABLED } from '@prava/worker/payments/demo-card';
 
 /** Polled by the checkout page while the user authorizes in the Prava iframe. */
 export const GET: APIRoute = async ({ params, locals }) => {
@@ -29,7 +30,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         .where(eq(checkouts.id, checkout.id));
     }
 
-    return Response.json(result);
+    return Response.json({ ...result, fallbackAvailable: DEMO_FALLBACK_ENABLED() });
   } catch (err) {
     const status = err instanceof PravaError ? err.status : 500;
     const message = err instanceof Error ? err.message : String(err);

@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { db, items, checkouts, users, identities, type ShippingAddress } from '@prava/db';
 import { and, eq } from 'drizzle-orm';
-import { getPaymentResult, reportStatus } from '@prava/worker/payments/prava';
+import { getPaymentResult, reportStatus, revokeSession } from '@prava/worker/payments/prava';
+import { DEMO_FALLBACK_ENABLED, demoFallbackCard } from '@prava/worker/payments/demo-card';
 import { getChannel } from '@prava/worker/channels';
 
 const EXECUTOR = process.env.CHECKOUT_EXECUTOR_URL ?? 'http://127.0.0.1:8787/execute';
@@ -30,6 +31,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const body = (await request.json().catch(() => null)) as {
     shipping?: Record<string, string>;
     watch?: boolean;
+    fallback?: boolean;
   } | null;
 
   if (!body?.shipping) return new Response('shipping is required', { status: 400 });
@@ -52,18 +54,35 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     .where(eq(users.id, locals.userId))
     .catch((err) => console.error('could not save shipping address', err));
 
-  console.log(`order: ${sessionId} — fetching minted card from Prava`);
-  const payment = await getPaymentResult(sessionId);
-  if (!payment.credentials) {
-    console.log(`order: ${sessionId} — not minted yet (${payment.status})`);
-    return Response.json(
-      { status: 'failed', message: `card not minted yet (${payment.status})` },
-      { status: 409 },
-    );
+  const demoFallback = body.fallback === true;
+  if (demoFallback && !DEMO_FALLBACK_ENABLED()) {
+    return Response.json({ status: 'failed', message: 'fallback disabled' }, { status: 403 });
+  }
+
+  // Normal path: the minted card comes from Prava server-side — the page never
+  // holds it. Demo-fallback path (passkey unavailable on stage): use Prava's
+  // published sandbox test card instead; it only works on sandbox gateways.
+  let card: import('@prava/worker/checkout/shopify').CardCredentials;
+  let txnRefId: string | null = null;
+  if (demoFallback) {
+    console.log(`order: ${sessionId} — DEMO FALLBACK: using sandbox test card, Prava passkey skipped`);
+    card = demoFallbackCard();
+  } else {
+    console.log(`order: ${sessionId} — fetching minted card from Prava`);
+    const payment = await getPaymentResult(sessionId);
+    if (!payment.credentials) {
+      console.log(`order: ${sessionId} — not minted yet (${payment.status})`);
+      return Response.json(
+        { status: 'failed', message: `card not minted yet (${payment.status})` },
+        { status: 409 },
+      );
+    }
+    card = payment.credentials;
+    txnRefId = payment.credentials.txnRefId;
   }
 
   console.log(
-    `order: ${sessionId} — card **** ${payment.credentials.token.slice(-4)}, handing to executor for ${item.productUrl}`,
+    `order: ${sessionId} — card **** ${card.token.slice(-4)}, handing to executor for ${item.productUrl}`,
   );
 
   const executorRes = await fetch(EXECUTOR, {
@@ -75,7 +94,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     },
     body: JSON.stringify({
       productUrl: item.productUrl,
-      card: payment.credentials,
+      card,
       shipping: body.shipping,
       headful: body.watch === true,
     }),
@@ -96,25 +115,28 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const result = (await executorRes.json()) as ExecutorResult;
   console.log(`order: ${sessionId} — merchant said ${result.status}: ${result.message}`);
 
+  const outcomePrefix = demoFallback ? '[sandbox test card — passkey skipped] ' : '';
   await db
     .update(checkouts)
-    .set({ status: result.status, outcome: result.message, settledAt: new Date() })
+    .set({ status: result.status, outcome: outcomePrefix + result.message, settledAt: new Date() })
     .where(eq(checkouts.id, checkout.id));
 
   // Report back to the chat that sent the share — the checkout page may be a
   // phone browser opened from the link, but the user lives in the DM thread.
   // Fire-and-forget: a dead chat token must not affect the order's outcome.
-  void notifyChat(locals.userId, item.merchant, result).catch((err) =>
+  void notifyChat(locals.userId, item.merchant, result, demoFallback).catch((err) =>
     console.error('chat notification failed', err),
   );
 
-  // Only a gateway verdict is worth settling; a driver failure never reached one.
-  // No processor codes are sent: response_code is capped at 2 characters and we
-  // have nothing authoritative to put in it.
-  if (result.status === 'placed' || result.status === 'declined') {
+  if (demoFallback) {
+    // Nothing was minted, so there is no txn to settle — just close the session.
+    await revokeSession(sessionId)
+      .then(() => console.log(`order: ${sessionId} — demo fallback: Prava session revoked`))
+      .catch((err) => console.error('revoke-session failed', err));
+  } else if (result.status === 'placed' || result.status === 'declined') {
     await reportStatus({
       sessionId,
-      txnRefId: payment.credentials.txnRefId,
+      txnRefId: txnRefId!,
       status: result.status === 'placed' ? 'APPROVED' : 'DECLINED',
     })
       .then(() => console.log(`order: ${sessionId} — settled with Prava as ${result.status === 'placed' ? 'APPROVED' : 'DECLINED'}`))
@@ -133,6 +155,7 @@ async function notifyChat(
   userId: string,
   merchant: string | null,
   result: ExecutorResult,
+  demoFallback = false,
 ): Promise<void> {
   const rows = await db
     .select({ platform: identities.platform, externalId: identities.externalId })
@@ -146,12 +169,14 @@ async function notifyChat(
   if (!identity) return;
 
   const name = merchant ?? 'the store';
+  const prefix = demoFallback ? '(Demo: sandbox test card, passkey step skipped.) ' : '';
   const text =
-    result.status === 'placed'
+    prefix +
+    (result.status === 'placed'
       ? `Order placed (sandbox — no real money moved). ${name} said: ${result.message}`
       : result.status === 'declined'
         ? `The store's payment gateway declined the sandbox card — that's expected with Prava test cards and proves the card reached a real processor. Outcome: ${result.message}`
-        : `Couldn't complete the checkout: ${result.message}`;
+        : `Couldn't complete the checkout: ${result.message}`);
 
   await getChannel(identity.platform).sendText(identity.externalId, text);
 }

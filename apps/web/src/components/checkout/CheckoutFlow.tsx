@@ -78,6 +78,10 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
   const [error, setError] = useState<string | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [passkeyReady, setPasskeyReady] = useState<boolean | null>(null);
+  const [fallbackAvailable, setFallbackAvailable] = useState(false);
+  const [fallback, setFallback] = useState(false);
+  const [slowPasskey, setSlowPasskey] = useState(false);
+  const [watch, setWatch] = useState(false);
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -111,7 +115,8 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
           body: JSON.stringify({
             itemId,
             shipping: { ...address, email },
-            watch: new URLSearchParams(window.location.search).get('watch') === '1',
+            watch: watch || new URLSearchParams(window.location.search).get('watch') === '1',
+            fallback,
           }),
         });
         result = await res.json();
@@ -133,7 +138,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
       setNote(result.message ?? 'The agent could not complete the checkout.');
       setPhase('manual');
     },
-    [email, itemId, sessionId],
+    [email, fallback, itemId, sessionId, watch],
   );
 
   const reportManually = useCallback(
@@ -190,6 +195,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
         const res = await fetch(`/api/payment-result/${sessionId}`);
         if (!res.ok) throw new Error(`payment-result returned ${res.status}`);
         body = await res.json();
+        if (body.fallbackAvailable) setFallbackAvailable(true);
       } catch (err) {
         console.error('poll failed, retrying', err);
         return void window.setTimeout(poll, 3000);
@@ -211,6 +217,19 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
 
     void poll();
   }, [checkoutUrl, expiresAt, fail, placeOrder, sessionId, shipping]);
+
+  useEffect(() => {
+    if (!(fallbackAvailable && phase === 'running' && !card)) return;
+    const t = window.setTimeout(() => setSlowPasskey(true), 20_000);
+    return () => window.clearTimeout(t);
+  }, [fallbackAvailable, phase, card]);
+
+  const useFallbackCard = () => {
+    setFallback(true);
+    setStage(3);
+    if (shipping) return void placeOrder(shipping);
+    setPhase('address');
+  };
 
   const settled = phase === 'placed';
 
@@ -251,11 +270,35 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                       </p>
                     </div>
                   )}
+                  <label className="mt-6 flex cursor-pointer items-center gap-3 text-[13px] text-ink-soft">
+                    <input
+                      type="checkbox"
+                      checked={watch}
+                      onChange={(e) => setWatch(e.target.checked)}
+                      className="h-4 w-4 rounded border-hairline accent-[#1C1B1A]"
+                    />
+                    Show the browser while the agent buys
+                  </label>
                   <BuyButton onClick={start} />
                 </div>
               ) : (
                 <div>
+                  {fallback && phase !== 'idle' && (
+                    <p className="mb-4 inline-block rounded-full border border-amber/40 bg-amber-soft px-3 py-1 text-[12px] font-medium text-amber">
+                      Demo mode — sandbox test card, Prava passkey skipped.
+                    </p>
+                  )}
                   <Timeline stage={stage} merchant={merchantName} phase={phase} />
+
+                  {fallbackAvailable && !fallback && phase === 'running' && !card && slowPasskey && (
+                    <button
+                      type="button"
+                      onClick={useFallbackCard}
+                      className="motion mt-4 text-[13px] font-medium text-ink-soft underline decoration-hairline underline-offset-4 hover:text-ink"
+                    >
+                      Passkey trouble? Continue with a sandbox test card (demo)
+                    </button>
+                  )}
 
                   <p className="mt-4 font-mono text-[11px] text-ink-soft">Order {orderId}</p>
 
@@ -317,6 +360,15 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                       >
                         Back to finds
                       </a>
+                      {fallbackAvailable && !fallback && (
+                        <button
+                          type="button"
+                          onClick={useFallbackCard}
+                          className="motion mt-4 block w-full rounded-full border border-hairline bg-white px-6 py-3 text-[15px] font-medium text-ink hover:border-ink-soft"
+                        >
+                          Continue with sandbox test card
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
