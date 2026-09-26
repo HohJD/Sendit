@@ -9,7 +9,7 @@
 import OpenAI from 'openai';
 
 const PROVIDERS = {
-  openrouter: { key: 'OPENROUTER_API_KEY', baseURL: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4.1-mini' },
+  openrouter: { key: 'OPENROUTER_API_KEY', baseURL: 'https://openrouter.ai/api/v1', model: 'openrouter/free' },
   openai: { key: 'OPENAI_API_KEY', baseURL: 'https://api.openai.com/v1', model: 'gpt-4.1-mini' },
   xai: { key: 'XAI_API_KEY', baseURL: 'https://api.x.ai/v1', model: 'grok-4.7' },
   nim: { key: 'NVIDIA_API_KEY', baseURL: 'https://integrate.api.nvidia.com/v1', model: 'moonshotai/kimi-k2.6' },

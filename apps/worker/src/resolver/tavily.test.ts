@@ -105,7 +105,7 @@ describe('tavily searchByText', () => {
     process.env.TAVILY_API_KEY = 'tavily-test';
     process.env.LLM_PROVIDER = 'openrouter';
     process.env.OPENROUTER_API_KEY = 'openrouter-test';
-    process.env.IDENTIFY_MODEL = 'openai/gpt-4.1-mini';
+    delete process.env.IDENTIFY_MODEL;
     responses.push({ status: 200, body: tavilyBody() });
     responses.push({ status: 200, body: llmBody([{
       title: 'The Long Haul Jacket', merchant: 'Taylor Stitch', price_amount: '128.00',
@@ -114,7 +114,10 @@ describe('tavily searchByText', () => {
     const results = await searchByText('black jacket');
     assert.equal(calls[1].url, 'https://openrouter.ai/api/v1/chat/completions');
     assert.equal(authHeader(calls[1].init), 'Bearer openrouter-test');
-    assert.deepEqual(JSON.parse(String(calls[1].init.body)).provider, { require_parameters: true });
+    const extractionRequest = JSON.parse(String(calls[1].init.body));
+    assert.equal(extractionRequest.model, 'openrouter/free');
+    assert.equal(extractionRequest.models, undefined);
+    assert.deepEqual(extractionRequest.provider, { require_parameters: true });
     assert.equal(results[0].priceAmount, '128.00');
     assert.equal(results[0].merchantDomain, 'taylorstitch.com');
   });

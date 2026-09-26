@@ -52,7 +52,7 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 | `LLM_PROVIDER` | `openrouter`, `openai`, `xai`, or `nim`; explicit selection overrides model-name inference |
 | `OPENROUTER_API_KEY` | OpenRouter key for image identification and Tavily result extraction; no direct OpenAI/xAI key required |
 | `OPENAI_API_KEY` | Vision and extraction through the direct OpenAI API; optional with OpenRouter |
-| `IDENTIFY_MODEL` | Model ID for the selected provider. OpenRouter defaults to `openai/gpt-4.1-mini`; other defaults and legacy inference are listed below. |
+| `IDENTIFY_MODEL` | Model ID for the selected provider. OpenRouter defaults to `openrouter/free`; other defaults and legacy inference are listed below. |
 | `XAI_API_KEY` | Vision identify via the direct xAI API (`grok-*` models) |
 | `NVIDIA_API_KEY` | Vision identify via NVIDIA NIM (namespaced `IDENTIFY_MODEL`) |
 | `SERPAPI_API_KEY` | Google Shopping discovery; optional when using Tavily |
@@ -75,16 +75,17 @@ Add these settings to the existing root `.env`, using your own key locally:
 
 ```env
 LLM_PROVIDER=openrouter
-OPENROUTER_API_KEY=your-openrouter-key
-IDENTIFY_MODEL=openai/gpt-4.1-mini
+OPENROUTER_API_KEY=
+IDENTIFY_MODEL=openrouter/free
 SEARCH_PROVIDER=tavily
-TAVILY_API_KEY=your-tavily-key
-DEMO_MODE=false
+DEMO_MODE=true
 ```
 
-Do not replace a configured Tavily key with the placeholder above. Keep demo
-mode on until you are ready for paid provider calls. Restart the worker after
-changing `.env`; changing the file does not update the existing process.
+Paste your OpenRouter key after `OPENROUTER_API_KEY=` and keep the existing
+`TAVILY_API_KEY` unchanged. This block intentionally keeps demo mode on until a
+controlled live test is approved. Real matching requires `DEMO_MODE=false`.
+Restart the worker after changing `.env`; editing the file does not update the
+existing process. Never overwrite the entire local `.env` with the template.
 
 OpenRouter routes through `https://openrouter.ai/api/v1` using the existing
 OpenAI SDK. The SDK package does not require a direct OpenAI API key: requests
@@ -92,10 +93,14 @@ use `OPENROUTER_API_KEY` exclusively when this provider is selected. The model
 reads the image, Tavily discovers store pages, and the model extracts products
 from those pages. Wassist and Prava do not change.
 
-The public OpenRouter model catalog lists `openai/gpt-4.1-mini` with image input
-and `response_format` support (checked 2026-09-26). Authenticated access, account
-credits and actual result quality still need a live test. Any replacement model
-must support images and JSON output. Both calls include
+The default `openrouter/free` router uses only free models, selecting an available
+model that supports the request's image/JSON requirements. Its catalog lists zero
+prompt/completion prices (checked 2026-09-26). There is no automatic paid-model
+fallback. Models may differ between identification and extraction, free capacity
+is rate-limited, and availability/quality still need a live test with your key.
+Tavily has its own credits and pricing; free model inference does not make every
+service free. Any explicitly chosen replacement model must support images and
+JSON output. Both calls include
 `provider.require_parameters=true` so unsupported parameters are not silently
 ignored; an incompatible provider/model returns an error instead. OpenRouter
 requests have a 30-second per-attempt timeout and at most one retry.
@@ -104,7 +109,7 @@ requests have a 30-second per-attempt timeout and at most one retry.
 
 | `LLM_PROVIDER` | Key | Default model when `IDENTIFY_MODEL` is blank |
 |---|---|---|
-| `openrouter` | `OPENROUTER_API_KEY` | `openai/gpt-4.1-mini` |
+| `openrouter` | `OPENROUTER_API_KEY` | `openrouter/free` |
 | `openai` | `OPENAI_API_KEY` | `gpt-4.1-mini` |
 | `xai` | `XAI_API_KEY` | `grok-4.7` |
 | `nim` | `NVIDIA_API_KEY` | `moonshotai/kimi-k2.6` |

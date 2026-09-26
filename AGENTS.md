@@ -32,8 +32,8 @@ production-ready payment application.
 The provider is implemented; do not build another messaging bot or MCP bridge.
 
 1. Inspect `resolver/llm.ts`, `identify.ts`, `search.ts`, `tavily.ts`, `resolve.ts`, and `demo.ts`, plus their tests.
-2. Obtain `OPENROUTER_API_KEY` through the local `.env`, not chat. Use `LLM_PROVIDER=openrouter`, `IDENTIFY_MODEL=openai/gpt-4.1-mini`, and `SEARCH_PROVIDER=tavily`. No direct OpenAI or xAI key is needed for that setup.
-3. The public catalog lists the default model with image and JSON-format support. Confirm account access/credits with a controlled live call; do not infer that from mocked tests. Both identification and Tavily extraction use the same selected model.
+2. Obtain `OPENROUTER_API_KEY` through the local `.env`, not chat. Use `LLM_PROVIDER=openrouter`, `IDENTIFY_MODEL=openrouter/free`, and `SEARCH_PROVIDER=tavily`. No direct OpenAI or xAI key is needed for that setup.
+3. The user prefers free models. `openrouter/free` is the default, has zero listed token prices and routes only to free models with the required image/JSON capabilities. Do not silently fall back to paid models. Both model calls use this router, but it may select different underlying models. Confirm account access, rate limits and result quality with a controlled live call; mocked tests do not prove these.
 4. With user approval, set `DEMO_MODE=false`, restart the worker, and run `pnpm resolve -- /absolute/path/to/product.png` from the root. This CLI resolves an image without sending a WhatsApp reply or starting a checkout; provider requests can incur charges.
 5. Confirm identification, JSON extraction, merchant URL/price accuracy, timeouts and failure behavior. OpenRouter requests require parameter support and use a 30-second per-attempt timeout with one retry. OpenAI/xAI/NIM remain available through explicit provider selection or legacy inference.
 6. Test one screenshot and one unreadable link through Wassist with the user. Only URLs/images may trigger a chat search. Do not send automated test traffic to their phone.

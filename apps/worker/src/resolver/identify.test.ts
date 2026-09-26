@@ -81,6 +81,22 @@ describe('identify', () => {
       `data:image/jpeg;base64,${TINY_JPEG_BASE64}`);
   });
 
+  test('the OpenRouter default sends only the free router model and no paid fallback list', async () => {
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.OPENROUTER_API_KEY = 'router-test';
+    responses.push({ status: 200, body: chatResponse({ content: JSON.stringify({
+      brand: null, product_type: 'jacket', color: 'black', distinguishing_features: [],
+      search_query: 'black jacket', confidence: 'medium',
+    }) }) });
+    await identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' });
+    const body = JSON.parse(String(calls[0].init.body));
+    assert.equal(body.model, 'openrouter/free');
+    assert.equal(body.models, undefined);
+    assert.equal(body.route, undefined);
+    assert.deepEqual(body.provider, { require_parameters: true });
+    assert.equal(calls[0].url, 'https://openrouter.ai/api/v1/chat/completions');
+  });
+
   test('OpenRouter without its own key fails before making a request even if another key exists', async () => {
     process.env.LLM_PROVIDER = 'openrouter';
     process.env.OPENAI_API_KEY = 'other-key';
@@ -90,7 +106,7 @@ describe('identify', () => {
 
   test('provider-specific defaults work without IDENTIFY_MODEL', () => {
     for (const [provider, model] of [
-      ['openrouter', 'openai/gpt-4.1-mini'], ['openai', 'gpt-4.1-mini'],
+      ['openrouter', 'openrouter/free'], ['openai', 'gpt-4.1-mini'],
       ['xai', 'grok-4.7'], ['nim', 'moonshotai/kimi-k2.6'],
     ]) {
       process.env.LLM_PROVIDER = provider;
@@ -103,7 +119,7 @@ describe('identify', () => {
     delete process.env.NVIDIA_API_KEY;
     process.env.OPENROUTER_API_KEY = 'openrouter-test';
     assert.equal(identifyProvider(), 'openrouter');
-    assert.equal(identifyModel(), 'openai/gpt-4.1-mini');
+    assert.equal(identifyModel(), 'openrouter/free');
     process.env.IDENTIFY_MODEL = 'moonshotai/kimi-k2.6';
     assert.equal(identifyProvider(), 'nim');
   });
