@@ -105,7 +105,10 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
   }, []);
 
   const placeOrder = useCallback(
-    async (address: Shipping) => {
+    // `useFallback` is passed explicitly because the callers that switch to the
+    // demo card call placeOrder in the same tick as setFallback — the closure
+    // would still see the stale `false`.
+    async (address: Shipping, useFallback = fallback) => {
       setPhase('buying');
       setStage(3);
 
@@ -118,7 +121,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
             itemId,
             shipping: { ...address, email },
             watch: watch || new URLSearchParams(window.location.search).get('watch') === '1',
-            fallback,
+            fallback: useFallback,
           }),
         });
         result = await res.json();
@@ -177,7 +180,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
       setFallback(true);
       setPhase('running');
       setStage(3);
-      if (shipping) return void placeOrder(shipping);
+      if (shipping) return void placeOrder(shipping, true);
       return setPhase('address');
     }
 
@@ -238,7 +241,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
   const useFallbackCard = () => {
     setFallback(true);
     setStage(3);
-    if (shipping) return void placeOrder(shipping);
+    if (shipping) return void placeOrder(shipping, true);
     setPhase('address');
   };
 

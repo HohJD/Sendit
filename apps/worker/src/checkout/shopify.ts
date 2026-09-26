@@ -435,7 +435,7 @@ async function fillCard(page: Page, card: CardCredentials, s: ShippingDetails): 
  */
 export function matchDecline(body: string): string | null {
   const match = body.match(
-    /(payment details could(n[''’]t| not) be verified[^.]*\.?|card was declined|payment (was )?declined|could not be processed|insufficient funds|invalid card|verification failed)/i,
+    /(payment details could(n[''’]t| not) be verified[^.]*\.?|card was declined|payment (was )?declined|could(n[''’]t| not) be processed|(there was an )?issue processing your payment[^.]*\.?|unable to process (your )?payment[^.]*\.?|payment failed|try a different (payment method|card)[^.]*\.?|card (number )?(is )?(invalid|not valid)|card (type )?(is )?n[o']?t supported|insufficient funds|invalid card|verification failed)/i,
   );
 
   return match ? match[0].trim() : null;
@@ -469,9 +469,20 @@ async function readOutcome(page: Page): Promise<CheckoutResult> {
     };
   }
 
+  // Surface whatever the store is actually saying — an unrecognised state is
+  // almost always a notice we simply don't have a pattern for yet.
+  const notices = await page
+    .locator('[role="alert"], [role="status"], .notice, .field__message--error, [class*="error"], [id^="error-for"]')
+    .allInnerTexts()
+    .catch(() => [] as string[]);
+  const notice = notices.map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ').slice(0, 300);
+  console.log(`checkout: unrecognised state at ${url}${notice ? ` — store says: ${notice}` : ''}`);
+
   return {
     status: 'failed',
-    message: 'Checkout finished in an unrecognised state.',
+    message: notice
+      ? `The store did not confirm the order. It said: "${notice.slice(0, 160)}"`
+      : 'Checkout finished in an unrecognised state.',
     url,
     screenshot: (await page.screenshot().catch(() => null))?.toString('base64'),
   };
