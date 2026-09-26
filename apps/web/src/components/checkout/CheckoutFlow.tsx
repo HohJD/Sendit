@@ -29,6 +29,8 @@ export interface Shipping {
 }
 
 export interface CheckoutFlowProps {
+  /** Demo: skip the Prava tab and run the agent with the sandbox test card on buy. */
+  fallbackDirect?: boolean;
   sessionId: string;
   checkoutUrl: string;
   expiresAt: string;
@@ -170,6 +172,15 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
     if (startedRef.current) return;
     startedRef.current = true;
 
+    if (props.fallbackDirect) {
+      setFallbackAvailable(true);
+      setFallback(true);
+      setPhase('running');
+      setStage(3);
+      if (shipping) return void placeOrder(shipping);
+      return setPhase('address');
+    }
+
     const tab = window.open(checkoutUrl, '_blank', 'noopener');
     if (!tab) setPopupBlocked(true);
 
@@ -216,7 +227,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
     };
 
     void poll();
-  }, [checkoutUrl, expiresAt, fail, placeOrder, sessionId, shipping]);
+  }, [checkoutUrl, expiresAt, fail, placeOrder, props.fallbackDirect, sessionId, shipping]);
 
   useEffect(() => {
     if (!(fallbackAvailable && phase === 'running' && !card)) return;

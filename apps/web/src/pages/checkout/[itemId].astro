@@ -4,6 +4,7 @@ import Wordmark from '../../components/Wordmark.astro';
 import { CheckoutFlow } from '../../components/checkout/CheckoutFlow.tsx';
 import { db, items, shares, users, checkouts, identities } from '@prava/db';
 import { createSession, purgeEnrolledCards } from '@prava/worker/payments/prava';
+import { DEMO_FALLBACK_DIRECT } from '@prava/worker/payments/demo-card';
 import { and, eq, inArray } from 'drizzle-orm';
 
 const { userId } = Astro.locals;
@@ -136,6 +137,7 @@ const priceLabel =
     {session && (
         <CheckoutFlow
           client:load
+          fallbackDirect={DEMO_FALLBACK_DIRECT()}
           sessionId={session.sessionId}
           checkoutUrl={session.iframeUrl}
           expiresAt={session.expiresAt}

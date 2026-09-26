@@ -8,7 +8,12 @@ import type { CardCredentials } from '../checkout/shopify.ts';
  * and never move money. Off by default; never enable in production.
  */
 export function DEMO_FALLBACK_ENABLED(): boolean {
-  return process.env.DEMO_FALLBACK_CARD === 'true';
+  return process.env.DEMO_FALLBACK_CARD === 'true' || DEMO_FALLBACK_DIRECT();
+}
+
+/** `direct`: skip the Prava tab entirely — "buy" goes straight to the agent. */
+export function DEMO_FALLBACK_DIRECT(): boolean {
+  return process.env.DEMO_FALLBACK_CARD === 'direct';
 }
 
 /** Sandbox test card from docs.prava.space/api-reference/test-cards. */
