@@ -24,6 +24,8 @@ const LABEL: Record<string, string> = {
   failed: 'Could not complete',
 };
 
+const isDemoSale = (outcome: string | null) => outcome?.startsWith('Demo sale') ?? false;
+
 const TONE: Record<string, string> = {
   authorizing: 'border-hairline text-ink-soft',
   authorized: 'border-ink text-ink',
@@ -42,7 +44,14 @@ const REACHED: Record<string, number> = {
 
 type StepState = 'done' | 'warn' | 'blocked' | 'active' | 'pending';
 
-const flowFor = (status: string): { label: string; state: StepState }[] => {
+const flowFor = (status: string, outcome: string | null): { label: string; state: StepState }[] => {
+  if (isDemoSale(outcome)) {
+    return ['Matched', 'Confirmed', 'Sale complete', 'Delivery'].map((label) => ({
+      label,
+      state: 'done' as StepState,
+    }));
+  }
+
   const labels = ['Session', 'Passkey', 'Card minted', 'Bought', 'Reported'];
   if (status === 'declined') labels[3] = 'Declined';
   if (status === 'failed') labels[3] = 'Agent stalled';
@@ -123,12 +132,12 @@ const money = (amount: string | null, currency: string | null) =>
               <span
                 class={`shrink-0 rounded-full border px-4 py-1.5 text-[12px] font-medium tracking-wide uppercase ${TONE[checkout.status]}`}
               >
-                {LABEL[checkout.status]}
+                {isDemoSale(checkout.outcome) ? 'Sale complete' : LABEL[checkout.status]}
               </span>
             </div>
 
             <ol class="mt-5 flex flex-wrap items-center gap-y-2">
-              {flowFor(checkout.status).map((step, i) => (
+              {flowFor(checkout.status, checkout.outcome).map((step, i) => (
                 <>
                   {i > 0 && <span class="mx-2 h-px w-4 shrink-0 bg-hairline sm:w-6" />}
                   <li class="flex items-center gap-2">

@@ -1,13 +1,14 @@
-import { db, users, identities } from '@prava/db';
+import { randomUUID } from 'node:crypto';
+import { db, users, identities, checkouts } from '@prava/db';
 import { and, eq, inArray } from 'drizzle-orm';
 import { loadItem } from '../intake/store.ts';
+import { demoDeliveryWindow, demoSaleOutcome } from './demo-sale.ts';
 import { launchGrokCheckout } from './grok-checkout.ts';
+import { signChatLogin } from './link.ts';
 
 /**
- * Approve button → Grok walks the store on this Mac with the sandbox test
- * card and stops before placing the order. No pay link is sent.
- *
- * Returns the message to send back to the user.
+ * Approve button → Grok walks the store and stops before Pay. The chat then
+ * shows a demo sale: complete, with a delivery window. Nothing is charged.
  */
 export async function startCheckout(userId: string, itemId: string): Promise<string> {
   const item = await loadItem(itemId);
@@ -38,19 +39,42 @@ export async function startCheckout(userId: string, itemId: string): Promise<str
         )
       : 'price unknown';
 
-  let grokOpened = false;
   if (item.productUrl) {
     try {
       await launchGrokCheckout(item.productUrl);
-      grokOpened = true;
     } catch (err) {
       console.error('checkout: could not launch Grok', err);
     }
   }
 
-  const intro = grokOpened
-    ? 'Grok is walking this purchase on your laptop. It will fill the sandbox test card and stop before placing the order.'
-    : 'Grok could not be started on this laptop, so nothing was opened and no order was placed.';
+  const delivery = demoDeliveryWindow();
+  const outcome = demoSaleOutcome(delivery);
+  const orderId = `DEMO-${Date.now().toString(36).toUpperCase()}`;
+  try {
+    await db.insert(checkouts).values({
+      userId,
+      itemId: item.id,
+      sessionId: `demo-${randomUUID()}`,
+      orderId,
+      status: 'placed',
+      totalAmount: item.priceAmount,
+      currency: item.currency,
+      outcome,
+      merchantUrl: item.productUrl,
+      settledAt: new Date(),
+    });
+  } catch (err) {
+    console.error('checkout: could not record demo sale', err);
+  }
 
-  return `${intro}\n\n${item.title} — ${price}\n${item.merchant ?? 'Unknown merchant'}\n\nNo order will be placed.`;
+  const origin = process.env.WEB_ORIGIN || 'http://localhost:4321';
+  const url = `${origin}/chat-login?${signChatLogin({ userId, next: '/checkouts' })}`;
+
+  return (
+    `Sale complete (demo).\n\n` +
+    `${item.title} — ${price}\n${item.merchant ?? 'Unknown merchant'}\n\n` +
+    `Expected delivery: ${delivery}.\n` +
+    `Order ${orderId}. This is demo data. No real order was placed and no money moved.\n\n` +
+    `See it here (link valid 15 min):\n${url}`
+  );
 }

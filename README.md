@@ -30,7 +30,7 @@ Send one of these:
 
 Sendit replies that it is looking, reads the image, and comes back with a match: title, store, and price.
 
-**Approve** appears only when the match is a store the checkout agent can drive. Today that means Shopify. Tap Approve and Grok opens that store on this Mac, adds the item, fills the public sandbox test card, and stops. It does not click Pay and it does not place the order. WhatsApp does not send a pay link for that tap.
+**Approve** appears only when the match is a store the checkout agent can drive. Today that means Shopify. Tap Approve and Grok opens that store on this Mac, fills the public sandbox test card, and stops before Pay. WhatsApp then shows a demo sale: complete, with an expected delivery window and a link to that outcome. No real order is placed and no money moves.
 
 Any other store comes back **view only**, with **Not this one** and no Approve button. Checkout would stop, so Sendit does not offer it.
 
@@ -66,7 +66,7 @@ WhatsApp ─▶ image ─▶ identify ─▶ search ─▶ match card
 3. **Identify** — A vision model returns the brand, product type, colour, material, and a shopping query.
 4. **Search** — That query is searched on the web. Prices are read from the page text. If the specific query misses, Sendit tries once more with a coarser description.
 5. **Reply** — The best match is sent back in chat. Shopify matches include Approve and Not this one. Other matches are view-only.
-6. **Checkout** — Approve launches Grok on this Mac. Grok fills the sandbox test card and stops before placing the order.
+6. **Checkout** — Approve launches Grok on this Mac and stops before Pay. The chat shows a demo sale complete, with a delivery window, and a link to the same outcome on the dashboard.
 
 `DEMO_MODE=true` swaps steps 3 and 4 for a fixed catalog after the image is acquired. An unreadable link still asks for a screenshot.
 
