@@ -1,5 +1,6 @@
 import type { CatalogCandidate } from './catalog.ts';
 import { getClient, identifyModel, providerOptions } from './llm.ts';
+import { enrichCandidates } from './enrich.ts';
 
 /**
  * Tavily search + LLM extraction as a drop-in for serpapi.ts.
@@ -32,7 +33,26 @@ const EXCLUDE_DOMAINS = [
   'tiktok.com',
   'instagram.com',
   'facebook.com',
+  // Resale / marketplace hosts — same reason as above: their checkout isn't a
+  // plain in-page Shopify-style flow the agent can drive.
+  'poshmark.com',
+  'shein.com',
+  'depop.com',
+  'mercari.com',
+  'grailed.com',
+  'vinted.com',
+  'vinted.co.uk',
+  'therealreal.com',
+  'vestiairecollective.com',
+  'stockx.com',
+  'goat.com',
+  'farfetch.com',
 ];
+
+/** Tavily's exclude_domains doesn't reliably cover subdomains (us.shein.com), so we re-check. */
+function isExcludedDomain(domain: string | null): boolean {
+  return !!domain && EXCLUDE_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`));
+}
 
 interface TavilyResult {
   title?: string;
@@ -48,7 +68,7 @@ interface TavilyResponse {
   [key: string]: unknown;
 }
 
-const SYSTEM = `You turn web search results into shopping candidates. Given a product query and search results (title, url, snippet), return ONLY JSON: {"candidates": [{"title": string, "merchant": string, "merchant_domain": string, "price_amount": string | null, "currency": string | null, "product_url": string}]}. Include a result only if its URL is a single product page on a store that sells the item (not a category, review, blog, marketplace, or social page). price_amount is a plain decimal like "128.00" only when the snippet states the price; otherwise null. Order by how well the result matches the query. Return at most {N} candidates.`;
+const SYSTEM = `You turn web search results into shopping candidates. Given a product query and search results (title, url, snippet), return ONLY JSON: {"candidates": [{"title": string, "merchant": string, "merchant_domain": string, "price_amount": string | null, "currency": string | null, "product_url": string}]}. Include a result only if its URL is a single product page on a store that sells the item (not a category, review, blog, marketplace, or social page). Prefer the brand's own store or a specialist retailer; exclude resale, second-hand and marketplace listings. price_amount is a plain decimal like "128.00" only when the snippet states the price; otherwise null. Order by how well the result matches the query. Return at most {N} candidates.`;
 
 interface RawCandidate {
   title?: string;
@@ -57,6 +77,13 @@ interface RawCandidate {
   price_amount?: string | null;
   currency?: string | null;
   product_url?: string;
+}
+
+/** Models hand back "128", "128.0", "$128.00" — we store a plain 2dp decimal. */
+function normaliseAmount(raw: string | null | undefined): string | null {
+  if (raw === undefined || raw === null) return null;
+  const n = Number(String(raw).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n.toFixed(2) : null;
 }
 
 function domainOf(url: string): string | null {
@@ -121,8 +148,14 @@ export async function searchByText(query: string, limit = 3): Promise<CatalogCan
     ],
   });
 
+  console.log(`tavily extraction: model used ${completion.model ?? identifyModel()}`);
+
   const content = completion.choices[0]?.message?.content;
-  if (!content) throw new Error('tavily extraction: no content in completion response');
+  if (!content) {
+    throw new Error(
+      `tavily extraction: no content in completion response (model ${completion.model ?? identifyModel()})`,
+    );
+  }
 
   let parsed: { candidates?: RawCandidate[] };
   try {
@@ -146,18 +179,23 @@ export async function searchByText(query: string, limit = 3): Promise<CatalogCan
   for (const c of parsed.candidates ?? []) {
     if (candidates.length >= limit) break;
     if (!c.product_url || !validUrls.has(c.product_url)) continue;
+    const merchantDomain = domainOf(c.product_url);
+    if (isExcludedDomain(merchantDomain)) continue;
 
     candidates.push({
       productId: c.product_url,
       title: c.title ?? 'Unknown product',
       merchant: c.merchant ?? null,
-      merchantDomain: domainOf(c.product_url),
-      priceAmount: c.price_amount ?? null,
+      merchantDomain,
+      priceAmount: normaliseAmount(c.price_amount),
       currency: c.currency ?? null,
       imageUrl: imagesByUrl.get(c.product_url)?.[0] ?? body.images?.[0] ?? null,
       productUrl: c.product_url,
     });
   }
 
+  // Snippets rarely carry prices — recover them from the product pages
+  // directly so candidates render buyable instead of view-only.
+  await enrichCandidates(candidates);
   return candidates;
 }

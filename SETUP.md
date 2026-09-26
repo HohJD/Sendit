@@ -53,6 +53,7 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 | `OPENROUTER_API_KEY` | OpenRouter key for image identification and Tavily result extraction; no direct OpenAI/xAI key required |
 | `OPENAI_API_KEY` | Vision and extraction through the direct OpenAI API; optional with OpenRouter |
 | `IDENTIFY_MODEL` | Model ID for the selected provider. OpenRouter defaults to `openrouter/free`; other defaults and legacy inference are listed below. |
+| `LLM_FALLBACK_MODELS` | Comma-separated OpenRouter fallback list. Unset → `openai/gpt-4.1-mini`; present-but-empty disables fallback |
 | `XAI_API_KEY` | Vision identify via the direct xAI API (`grok-*` models) |
 | `NVIDIA_API_KEY` | Vision identify via NVIDIA NIM (namespaced `IDENTIFY_MODEL`) |
 | `SERPAPI_API_KEY` | Google Shopping discovery; optional when using Tavily |
@@ -95,9 +96,14 @@ from those pages. Wassist and Prava do not change.
 
 The default `openrouter/free` router uses only free models, selecting an available
 model that supports the request's image/JSON requirements. Its catalog lists zero
-prompt/completion prices (checked 2026-09-26). There is no automatic paid-model
-fallback. Models may differ between identification and extraction, free capacity
-is rate-limited, and availability/quality still need a live test with your key.
+prompt/completion prices (checked 2026-09-26). **Fallback:** OpenRouter retries
+failed models server-side via the `models` list — on any primary error (routing
+404s, upstream rate limits) it tries `openai/gpt-4.1-mini`, a cheap paid model,
+so a busy free pool can't stall the demo. Set `LLM_FALLBACK_MODELS` (empty) to
+disable paid fallback, or to a comma-separated list to choose your own. The log
+line `identify: model used …` shows which model actually answered. Models may
+differ between identification and extraction, free capacity is rate-limited,
+and availability/quality still need a live test with your key.
 Tavily has its own credits and pricing; free model inference does not make every
 service free. Any explicitly chosen replacement model must support images and
 JSON output. Both calls include

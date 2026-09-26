@@ -167,7 +167,8 @@ OPENROUTER_API_KEY=          # image identification + Tavily extraction through 
 OPENAI_API_KEY=              # optional direct OpenAI alternative
 XAI_API_KEY=                 # optional direct xAI alternative
 NVIDIA_API_KEY=              # optional direct NVIDIA NIM alternative
-IDENTIFY_MODEL=openrouter/free # free-model router; image/JSON capability filtering, no paid fallback
+IDENTIFY_MODEL=openrouter/free # free-model router; image/JSON capability filtering
+LLM_FALLBACK_MODELS=openai/gpt-4.1-mini # OpenRouter fallback when free models fail; empty = never fall back
 SERPAPI_API_KEY=             # Google Shopping discovery
 TAVILY_API_KEY=              # web-search discovery (prices extracted by the LLM)
 SEARCH_PROVIDER=             # "tavily" or "serpapi"; unset → whichever key exists, serpapi if both

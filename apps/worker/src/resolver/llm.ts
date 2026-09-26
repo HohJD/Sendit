@@ -55,8 +55,35 @@ export function identifyApiKeyName(): string {
   return PROVIDERS[identifyProvider()].key;
 }
 
-export function providerOptions(): { provider?: { require_parameters: boolean } } {
-  return identifyProvider() === 'openrouter' ? { provider: { require_parameters: true } } : {};
+/**
+ * OpenRouter request extras. `require_parameters` filters the routing pool to
+ * models that accept our JSON mode + image input; `models` is OpenRouter's
+ * server-side fallback list — on any error from the primary (including the
+ * "no endpoints" routing 404 and upstream 429s) the next model in the list is
+ * tried, and the response's `model` field shows which one answered.
+ *
+ * LLM_FALLBACK_MODELS, comma-separated. Unset → falls back to cheap paid
+ * `openai/gpt-4.1-mini` when free capacity is unavailable — reliability for
+ * the demo beats free. Present-but-empty disables fallback entirely.
+ */
+export function providerOptions(): {
+  provider?: { require_parameters: boolean };
+  models?: string[];
+} {
+  if (identifyProvider() !== 'openrouter') return {};
+
+  const env = process.env.LLM_FALLBACK_MODELS;
+  const fallbacks =
+    env === undefined
+      ? ['openai/gpt-4.1-mini']
+      : env.trim() === ''
+        ? []
+        : env.split(',').map((m) => m.trim()).filter(Boolean);
+
+  return {
+    provider: { require_parameters: true },
+    ...(fallbacks.length ? { models: [identifyModel(), ...fallbacks] } : {}),
+  };
 }
 
 export function getClient(): OpenAI {

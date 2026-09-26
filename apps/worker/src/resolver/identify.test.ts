@@ -10,7 +10,7 @@ const TINY_JPEG_BASE64 =
 
 let calls: Array<{ url: string; init: RequestInit }>;
 let responses: Array<{ status: number; body: unknown }>;
-const ENV_KEYS = ['LLM_PROVIDER', 'IDENTIFY_MODEL', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'NVIDIA_API_KEY'];
+const ENV_KEYS = ['LLM_PROVIDER', 'IDENTIFY_MODEL', 'LLM_FALLBACK_MODELS', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'NVIDIA_API_KEY'];
 let saved: Record<string, string | undefined>;
 let realFetch: typeof fetch;
 
@@ -81,9 +81,10 @@ describe('identify', () => {
       `data:image/jpeg;base64,${TINY_JPEG_BASE64}`);
   });
 
-  test('the OpenRouter default sends only the free router model and no paid fallback list', async () => {
+  test('the OpenRouter default sends the free router model; an empty LLM_FALLBACK_MODELS disables fallback', async () => {
     process.env.LLM_PROVIDER = 'openrouter';
     process.env.OPENROUTER_API_KEY = 'router-test';
+    process.env.LLM_FALLBACK_MODELS = '';
     responses.push({ status: 200, body: chatResponse({ content: JSON.stringify({
       brand: null, product_type: 'jacket', color: 'black', distinguishing_features: [],
       search_query: 'black jacket', confidence: 'medium',
@@ -143,6 +144,41 @@ describe('identify', () => {
     assert.equal(getClient().apiKey, 'rotated-test-key');
     assert.equal(getClient().timeout, 30_000);
     assert.equal(getClient().maxRetries, 1);
+  });
+
+  test('openrouter requests carry a models fallback list by default', async () => {
+    process.env.LLM_PROVIDER = 'openrouter';
+    process.env.OPENROUTER_API_KEY = 'openrouter-test';
+    delete process.env.IDENTIFY_MODEL; // → openrouter/free
+    responses.push({ status: 200, body: chatResponse({ content: JSON.stringify({
+      brand: null, product_type: 'jacket', color: 'black', distinguishing_features: [],
+      search_query: 'black jacket', confidence: 'medium',
+    }) }) });
+    await identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' });
+    const body = JSON.parse(String(calls[0].init.body));
+    assert.deepEqual(body.models, ['openrouter/free', 'openai/gpt-4.1-mini']);
+    assert.equal(body.model, 'openrouter/free');
+  });
+
+  test('LLM_FALLBACK_MODELS is honoured; empty string disables fallback', async () => {
+    const { providerOptions } = await import('./llm.ts');
+    process.env.LLM_PROVIDER = 'openrouter';
+    delete process.env.IDENTIFY_MODEL;
+
+    process.env.LLM_FALLBACK_MODELS = 'vendor/a, vendor/b';
+    assert.deepEqual(providerOptions().models, ['openrouter/free', 'vendor/a', 'vendor/b']);
+
+    process.env.LLM_FALLBACK_MODELS = '';
+    assert.equal(providerOptions().models, undefined);
+    assert.deepEqual(providerOptions().provider, { require_parameters: true });
+  });
+
+  test('an empty completion errors with the responding model id', async () => {
+    responses.push({ status: 200, body: { ...chatResponse({}), model: 'dots-studio/dots-3-note-preview:free' } });
+    await assert.rejects(
+      identify({ imageBase64: TINY_JPEG_BASE64, mediaType: 'image/jpeg' }),
+      /no content in completion response \(model dots-studio\/dots-3-note-preview:free\)/,
+    );
   });
 
   test('OpenRouter model/parameter failures are surfaced without silently switching providers', async () => {

@@ -82,7 +82,9 @@ export async function identify(params: {
     model,
     temperature: 0.2, // consistent structured extraction, not creative generation
     top_p: 1,
-    max_tokens: 1024,
+    // Reasoning-style free models (dots-3 et al.) burn tokens before the JSON;
+    // 1024 truncated the signal mid-array on a live test.
+    max_tokens: 4096,
     stream: false,
     response_format: { type: 'json_object' },
     messages: [
@@ -107,13 +109,21 @@ export async function identify(params: {
 
   // Mirrors the getattr(..., "reasoning_content", None) defensiveness from the
   // reference snippet — not every model on this endpoint returns it.
+  // The model that actually answered — with OpenRouter fallbacks this is how
+  // you know whether the primary or a fallback produced the signal.
+  console.log(`identify: model used ${completion.model ?? model}`);
+
   const message = completion.choices[0]?.message as { content?: string | null; reasoning_content?: string };
   if (message?.reasoning_content) {
     console.debug('identify: reasoning_content:', message.reasoning_content);
   }
 
   const content = message?.content;
-  if (!content) throw new Error('identify: no content in completion response');
+  // Some routed models (e.g. dots-3) return an empty completion instead of an
+  // error — the model id is the only way to know who to blame.
+  if (!content) {
+    throw new Error(`identify: no content in completion response (model ${completion.model ?? model})`);
+  }
 
   let parsed: RawSignal;
   try {

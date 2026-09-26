@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { searchByText } from './tavily.ts';
 import { searchProvider } from './search.ts';
 import { __resetClientForTests } from './llm.ts';
+import { __setLookupForTests } from './enrich.ts';
 
 let calls: Array<{ url: string; init: RequestInit }>;
 let responses: Array<{ status: number; body: unknown }>;
@@ -16,6 +17,7 @@ const ENV_KEYS = [
   'XAI_API_KEY',
   'NVIDIA_API_KEY',
   'LLM_PROVIDER',
+  'LLM_FALLBACK_MODELS',
   'OPENROUTER_API_KEY',
 ];
 let saved: Record<string, string | undefined>;
@@ -28,6 +30,8 @@ beforeEach(() => {
   saved = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
   for (const k of ENV_KEYS) delete process.env[k];
   __resetClientForTests();
+  // Enrichment does a DNS check before fetching — never let tests hit real DNS.
+  __setLookupForTests(async () => ({ address: '93.184.216.34', family: 4 }) as never);
 
   // @ts-expect-error — test double; the OpenAI SDK uses global fetch under Node 18+
   globalThis.fetch = async (url: string, init: RequestInit) => {
@@ -69,6 +73,12 @@ function tavilyBody() {
         content: 'Our top picks for black jackets.',
         score: 0.5,
       },
+      {
+        title: 'SHEIN black jacket',
+        url: 'https://us.shein.com/products/jacket',
+        content: 'SHEIN jacket',
+        score: 0.4,
+      },
     ],
     images: ['https://cdn.taylorstitch.com/jacket.jpg'],
   };
@@ -106,6 +116,7 @@ describe('tavily searchByText', () => {
     process.env.LLM_PROVIDER = 'openrouter';
     process.env.OPENROUTER_API_KEY = 'openrouter-test';
     delete process.env.IDENTIFY_MODEL;
+    process.env.LLM_FALLBACK_MODELS = ''; // keep this test on the router alone — fallback is covered in identify.test.ts
     responses.push({ status: 200, body: tavilyBody() });
     responses.push({ status: 200, body: llmBody([{
       title: 'The Long Haul Jacket', merchant: 'Taylor Stitch', price_amount: '128.00',
@@ -138,6 +149,7 @@ describe('tavily searchByText', () => {
           product_url: 'https://www.taylorstitch.com/products/long-haul-jacket',
         },
         { title: 'Ghost', merchant: 'X', product_url: 'https://made-up.example.com/p' },
+        { title: 'Shein jacket', merchant: 'SHEIN', product_url: 'https://us.shein.com/products/jacket' },
       ]),
     });
 
@@ -160,7 +172,7 @@ describe('tavily searchByText', () => {
     assert.equal(parsed.response_format.type, 'json_object');
     assert.equal(parsed.temperature, 0.1);
 
-    assert.equal(out.length, 1); // hallucinated URL dropped
+    assert.equal(out.length, 1); // hallucinated URL and excluded-domain candidate dropped
     const c = out[0];
     assert.equal(c.title, 'The Long Haul Jacket');
     assert.equal(c.merchantDomain, 'taylorstitch.com'); // derived, www stripped, model ignored
