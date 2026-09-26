@@ -3,7 +3,7 @@ import '../../styles/global.css';
 import Wordmark from '../../components/Wordmark.astro';
 import { CheckoutFlow } from '../../components/checkout/CheckoutFlow.tsx';
 import { db, items, shares, users, checkouts, identities } from '@prava/db';
-import { createSession } from '@prava/worker/payments/prava';
+import { createSession, purgeEnrolledCards } from '@prava/worker/payments/prava';
 import { and, eq, inArray } from 'drizzle-orm';
 
 const { userId } = Astro.locals;
@@ -50,6 +50,9 @@ if (!item.priceAmount || !item.currency) {
   error = 'Your account has no email address, which Prava requires to open a session.';
 } else {
   try {
+    // A card left half-enrolled by a failed device binding traps every later
+    // session for this customer id (see purgeEnrolledCards) — start clean.
+    await purgeEnrolledCards(userId);
     session = await createSession({
       userId,
       userEmail: user.email,
