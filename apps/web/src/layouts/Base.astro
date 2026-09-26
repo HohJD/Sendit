@@ -18,7 +18,7 @@ const { title } = Astro.props;
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="application-name" content="sendit" />
-    <meta name="theme-color" content="#fafaf9" />
+    <meta name="theme-color" content="#FAF7F2" />
     <meta property="og:site_name" content="sendit" />
     <meta property="og:title" content={title} />
     <meta property="og:image" content="/og-image.png" />
@@ -26,15 +26,15 @@ const { title } = Astro.props;
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
   </head>
-  <body class="font-display h-full bg-[#fafaf9] text-stone-900 antialiased">
-    <header class="border-b border-stone-200 bg-white/80 backdrop-blur">
+  <body class="font-sans h-full bg-paper text-ink antialiased">
+    <header class="border-b border-hairline bg-white/80 backdrop-blur">
       <div class="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3 sm:px-8">
         <Wordmark size="sm" />
-        <a href="/" class="text-[13px] font-medium text-stone-500 transition-colors hover:text-stone-900">
+        <a href="/" class="motion text-[13px] font-medium text-ink-soft hover:opacity-[0.92] hover:text-ink">
           Back
         </a>
       </div>

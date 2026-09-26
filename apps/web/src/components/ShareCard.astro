@@ -31,8 +31,8 @@ const buyable = (item: Item) => Boolean(item.priceAmount && item.currency);
 const sourceLine = share.sourceUrl || share.inputText || null;
 ---
 
-<article class="find-card relative rounded-2xl border border-stone-200 bg-white transition-colors hover:border-stone-300">
-  <div class="find-card-label">
+<article class="motion relative min-w-0 rounded-2xl border border-hairline bg-white shadow-card hover:-translate-y-0.5 hover:shadow-card-hover">
+  <div class="flex min-h-[44px] items-center justify-between gap-2.5 border-b border-hairline px-4 py-3 text-[11px] tracking-[0.12em] uppercase text-ink-soft">
     <span>{share.platform === 'wassist' || share.platform === 'whatsapp' ? 'WhatsApp' : share.platform === 'instagram' ? 'Instagram' : 'Shared find'}</span>
     <span>{share.status === 'resolved' ? 'Reviewed by you next' : share.status === 'failed' ? 'Needs another look' : 'Finding your match'}</span>
   </div>
@@ -42,7 +42,7 @@ const sourceLine = share.sourceUrl || share.inputText || null;
         type="button"
         data-delete-share={share.id}
         aria-label="Delete this find"
-        class="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-stone-300 bg-white/90 text-[13px] text-stone-500 transition hover:border-stone-900 hover:text-stone-900 disabled:opacity-30"
+        class="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-hairline bg-white/90 text-[13px] text-ink-soft motion hover:border-ink hover:text-ink disabled:opacity-30"
       >
         &times;
       </button>
@@ -51,15 +51,15 @@ const sourceLine = share.sourceUrl || share.inputText || null;
 
   {
     share.thumbnail && (
-      <div class={`grid gap-px overflow-hidden rounded-t-2xl bg-stone-200 ${best?.imageUrl ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div class={`grid gap-px overflow-hidden rounded-t-2xl bg-hairline ${best?.imageUrl ? 'grid-cols-2' : 'grid-cols-1'}`}>
         <figure class="relative m-0">
           <img
             src={share.thumbnail}
             alt="What you sent"
             loading="lazy"
-            class="aspect-square w-full bg-stone-100 object-cover"
+            class="aspect-square w-full bg-paper object-cover"
           />
-          <figcaption class="absolute top-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium tracking-wide text-stone-600 uppercase">
+          <figcaption class="absolute top-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium tracking-wide text-ink-soft uppercase">
             You sent
           </figcaption>
         </figure>
@@ -70,9 +70,9 @@ const sourceLine = share.sourceUrl || share.inputText || null;
               src={best.imageUrl}
               alt={best.title}
               loading="lazy"
-              class="aspect-square w-full bg-stone-100 object-cover"
+              class="aspect-square w-full bg-paper object-cover"
             />
-            <figcaption class="absolute top-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium tracking-wide text-stone-600 uppercase">
+            <figcaption class="absolute top-2 left-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium tracking-wide text-ink-soft uppercase">
               Match
             </figcaption>
           </figure>
@@ -83,21 +83,21 @@ const sourceLine = share.sourceUrl || share.inputText || null;
   {
     share.status !== 'resolved' && (
       <div class="p-5">
-        <p class="text-[15px] font-medium tracking-[-0.02em] text-stone-700">
+        <p class="text-[15px] font-medium tracking-[-0.02em] text-ink">
           {share.status === 'failed' ? 'Could not read this one' : 'Working on it…'}
         </p>
         {sourceLine &&
           (share.sourceUrl ? (
             <a
               href={share.sourceUrl}
-              class="mt-2 block truncate text-[13px] text-stone-400 hover:text-stone-700"
+              class="mt-2 block truncate text-[13px] text-ink-soft hover:text-ink"
             >
               {share.sourceUrl}
             </a>
           ) : (
-            <p class="mt-2 text-[13px] text-stone-400">{sourceLine}</p>
+            <p class="mt-2 break-words text-[13px] text-ink-soft">{sourceLine}</p>
           ))}
-        {share.error && <p class="mt-3 text-[13px] text-red-600">{share.error}</p>}
+        {share.error && <p class="mt-3 text-[13px] text-red">{share.error}</p>}
       </div>
     )
   }
@@ -105,17 +105,17 @@ const sourceLine = share.sourceUrl || share.inputText || null;
   {
     share.status === 'resolved' && !best && (
       <div class="p-5">
-        <p class="text-[15px] font-medium tracking-[-0.02em] text-stone-700">No match found</p>
+        <p class="text-[15px] font-medium tracking-[-0.02em] text-ink">No match found</p>
         {sourceLine &&
           (share.sourceUrl ? (
             <a
               href={share.sourceUrl}
-              class="mt-2 block truncate text-[13px] text-stone-400 hover:text-stone-700"
+              class="mt-2 block truncate text-[13px] text-ink-soft hover:text-ink"
             >
               {share.sourceUrl}
             </a>
           ) : (
-            <p class="mt-2 text-[13px] text-stone-400">{sourceLine}</p>
+            <p class="mt-2 break-words text-[13px] text-ink-soft">{sourceLine}</p>
           ))}
       </div>
     )
@@ -129,24 +129,24 @@ const sourceLine = share.sourceUrl || share.inputText || null;
             src={best.imageUrl}
             alt={best.title}
             loading="lazy"
-            class="aspect-square w-full rounded-t-2xl bg-stone-100 object-cover"
+            class="aspect-square w-full rounded-t-2xl bg-paper object-cover"
           />
         )}
         <div class="p-5">
           {share.resolution === 'similar' && (
-            <p class="mb-2 inline-block rounded-full border border-amber-300 px-2.5 py-1 text-[11px] font-medium text-amber-600 uppercase">
+            <p class="mb-2 inline-block rounded-full border border-amber/40 bg-amber-soft px-2.5 py-1 text-[11px] font-medium text-amber uppercase">
               Similar to your send
             </p>
           )}
           {sourceLine && !share.thumbnail && (
-            <p class="mb-2 truncate text-[12px] text-stone-400">{sourceLine}</p>
+            <p class="mb-2 truncate text-[12px] text-ink-soft">{sourceLine}</p>
           )}
-          <h3 class="text-[18px] leading-[1.1] font-medium tracking-[-0.03em] text-stone-900">
+          <h3 class="font-serif text-[22px] leading-[1.1] tracking-[-0.01em] text-ink">
             {best.title}
           </h3>
-          <p class="mt-2 text-[13px] tracking-wide text-stone-500 uppercase">{best.merchant}</p>
+          <p class="mt-2 text-[13px] tracking-wide text-ink-soft uppercase">{best.merchant}</p>
           {price(best) && (
-            <p class="mt-3 text-[30px] leading-none font-medium tracking-[-0.03em] text-stone-900">
+            <p class="mt-3 font-serif text-[32px] leading-none tracking-[-0.01em] text-ink">
               {price(best)}
             </p>
           )}
@@ -155,7 +155,7 @@ const sourceLine = share.sourceUrl || share.inputText || null;
             <>
               <a
                 href={`/checkout/${best.id}`}
-                class="bg-gradient-brand mt-5 block rounded-full px-5 py-3 text-center text-[15px] font-medium text-white transition-transform hover:scale-[1.02]"
+                class="bg-gradient-accent mt-5 block rounded-full px-5 py-3 text-center text-[15px] font-medium text-ink motion hover:scale-[1.02]"
               >
                 Review test checkout
               </a>
@@ -163,7 +163,7 @@ const sourceLine = share.sourceUrl || share.inputText || null;
                 href={best.productUrl}
                 target="_blank"
                 rel="noopener nofollow"
-                class="mt-2 block rounded-full border border-stone-300 px-5 py-3 text-center text-[13px] font-medium text-stone-700 transition-colors hover:border-stone-900"
+                class="mt-2 block rounded-full border border-hairline px-5 py-3 text-center text-[13px] font-medium text-ink motion hover:border-ink"
               >
                 View at {best.merchant ?? 'merchant'}
               </a>
@@ -173,15 +173,15 @@ const sourceLine = share.sourceUrl || share.inputText || null;
               href={best.productUrl}
               target="_blank"
               rel="noopener nofollow"
-              class="bg-gradient-brand mt-5 block rounded-full px-5 py-3 text-center text-[15px] font-medium text-white transition-transform hover:scale-[1.02]"
+              class="bg-gradient-accent mt-5 block rounded-full px-5 py-3 text-center text-[15px] font-medium text-ink motion hover:scale-[1.02]"
             >
               View at {best.merchant ?? 'merchant'}
             </a>
           )}
 
           {alternates.length > 0 && (
-            <details class="mt-4">
-              <summary class="cursor-pointer text-[11px] font-medium tracking-wide text-stone-500 uppercase hover:text-stone-900">
+            <details class="mt-4 border-t border-hairline pt-4">
+              <summary class="cursor-pointer text-[11px] font-medium tracking-wide text-ink-soft uppercase hover:text-ink">
                 {alternates.length} other match{alternates.length === 1 ? '' : 'es'}
               </summary>
               <ul class="mt-3 space-y-2">
@@ -191,7 +191,7 @@ const sourceLine = share.sourceUrl || share.inputText || null;
                       href={item.productUrl}
                       target="_blank"
                       rel="noopener nofollow"
-                      class="text-[13px] text-stone-500 hover:text-stone-900"
+                      class="text-[13px] text-ink-soft hover:text-ink"
                     >
                       {item.title} — {item.merchant}
                     </a>

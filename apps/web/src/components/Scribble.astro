@@ -1,0 +1,29 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className = '' } = Astro.props;
+const id = `scribble-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<svg
+  class={className}
+  viewBox="0 0 200 14"
+  preserveAspectRatio="none"
+  fill="none"
+  aria-hidden="true"
+>
+  <defs>
+    <linearGradient id={id} x1="0" y1="0" x2="200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B9A7FF" />
+      <stop offset="1" stop-color="#FFC6A8" />
+    </linearGradient>
+  </defs>
+  <path
+    d="M4 9 C 30 4, 55 12, 82 8 S 130 3, 158 8 S 188 11, 196 7"
+    stroke={`url(#${id})`}
+    stroke-width="3.5"
+    stroke-linecap="round"
+  />
+</svg>

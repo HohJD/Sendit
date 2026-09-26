@@ -1,45 +1,79 @@
 ---
 import DashboardShell from '../layouts/DashboardShell.astro';
 import ItemGrid from '../components/ItemGrid.astro';
+import Scribble from '../components/Scribble.astro';
 
 const { userId } = Astro.locals;
 if (!userId) return Astro.redirect('/');
 ---
 
 <DashboardShell title="Your finds" active="finds">
-  <header class="collection-intro">
+  <header class="grid items-center gap-8 py-9 sm:grid-cols-[1.4fr_1fr] sm:pb-11">
     <div>
-      <p class="collection-eyebrow">Your personal collection / Sendit</p>
-      <h1>Good eye.<br /><span>We’ll take it from here.</span></h1>
-      <p class="collection-description">The things that caught your eye, all in one place. Review your matches, explore the store, and approve a test checkout when you’re ready.</p>
-      <div class="collection-actions">
-        <a href="#your-finds" class="collection-primary">View your finds <span aria-hidden="true">↘</span></a>
-        <a href="/explore" class="collection-secondary">Explore products <span aria-hidden="true">↗</span></a>
+      <p class="text-[11px] font-medium tracking-[0.12em] text-ink-soft uppercase">Your personal collection / Sendit</p>
+      <h1 class="mt-5 font-serif text-[44px] leading-[1.05] tracking-[-0.01em] sm:text-[56px]">
+        Good <span class="relative inline-block">eye.<Scribble class="absolute -bottom-1 left-0 h-[10px] w-full" /></span><br />We’ll take it from here.
+      </h1>
+      <p class="mt-6 max-w-[420px] text-[15px] leading-[1.7] text-ink-soft">
+        The things that caught your eye, all in one place. Review your matches, explore the store, and approve a test checkout when you’re ready.
+      </p>
+      <div class="mt-7 flex flex-wrap items-center gap-6">
+        <a
+          href="#your-finds"
+          class="motion inline-flex items-center gap-4 rounded-full bg-gradient-accent px-6 py-3 text-[15px] font-medium text-ink hover:scale-[1.02]"
+        >
+          View your finds <span aria-hidden="true">↘</span>
+        </a>
+        <a href="/explore" class="motion text-[13px] font-medium text-ink underline decoration-hairline underline-offset-[5px] hover:opacity-[0.92]">
+          Explore products <span aria-hidden="true">↗</span>
+        </a>
       </div>
     </div>
-    <div class="collection-mascot">
-      <span class="mascot-label">A little less searching.</span>
-      <img src="/sendit-logo.png" alt="Sendit paper-plane mascot wearing sunglasses" width="1024" height="682" fetchpriority="high" />
-      <span class="mascot-note">A little more finding.</span>
+    <div class="relative mx-auto grid w-full max-w-[300px] place-items-center rounded-3xl border border-hairline bg-white px-6 py-5 shadow-[0_1px_2px_rgba(28,27,26,0.04),0_8px_24px_-12px_rgba(28,27,26,0.08)]">
+      <span class="pt-1 text-[11px] tracking-[0.04em] text-ink-soft">A little less searching.</span>
+      <img
+        src="/sendit-logo.png"
+        alt="Sendit paper-plane mascot wearing sunglasses"
+        width="1024"
+        height="682"
+        fetchpriority="high"
+        class="-rotate-[7deg]"
+      />
+      <span class="pb-1 text-[11px] tracking-[0.04em] text-ink-soft">A little more finding.</span>
     </div>
   </header>
 
-  <section class="collection-guide" aria-label="How your collection works">
-    <div><span>01</span><p><strong>Send a spark</strong>A link or screenshot in WhatsApp.</p></div>
-    <div><span>02</span><p><strong>Meet the match</strong>Compare the product and the store.</p></div>
-    <div><span>03</span><p><strong>You make the call</strong>Approve a Prava sandbox checkout.</p></div>
+  <section
+    class="grid gap-4 border-y border-hairline py-6 sm:grid-cols-3 sm:gap-6"
+    aria-label="How your collection works"
+  >
+    <div class="flex items-start gap-4">
+      <span class="pt-0.5 font-serif text-[15px] text-ink-soft tabular-nums">01</span>
+      <p class="text-[13px] leading-[1.7] text-ink-soft"><strong class="mb-0.5 block text-[13px] font-medium text-ink">Send a spark</strong>A link or screenshot in WhatsApp.</p>
+    </div>
+    <div class="flex items-start gap-4">
+      <span class="pt-0.5 font-serif text-[15px] text-ink-soft tabular-nums">02</span>
+      <p class="text-[13px] leading-[1.7] text-ink-soft"><strong class="mb-0.5 block text-[13px] font-medium text-ink">Meet the match</strong>Compare the product and the store.</p>
+    </div>
+    <div class="flex items-start gap-4">
+      <span class="pt-0.5 font-serif text-[15px] text-ink-soft tabular-nums">03</span>
+      <p class="text-[13px] leading-[1.7] text-ink-soft"><strong class="mb-0.5 block text-[13px] font-medium text-ink">You make the call</strong>Approve a Prava sandbox checkout.</p>
+    </div>
   </section>
 
-  <div id="your-finds" class="collection-heading">
-    <div><p class="collection-eyebrow">Saved from your conversations</p><h2>Your finds<span aria-hidden="true">.</span></h2></div>
-    <span class="collection-sandbox">Sandbox · No real money</span>
+  <div id="your-finds" class="mt-11 mb-6 flex flex-wrap items-end justify-between gap-4 scroll-mt-[150px]">
+    <div>
+      <p class="text-[11px] font-medium tracking-[0.12em] text-ink-soft uppercase">Saved from your conversations</p>
+      <h2 class="mt-1 font-serif text-[32px] tracking-[-0.01em]">Your finds<span class="text-gradient-accent" aria-hidden="true">.</span></h2>
+    </div>
+    <span class="inline-block rounded-full border border-hairline bg-paper px-3 py-1 text-[11px] tracking-[0.12em] text-ink-soft uppercase">Sandbox · No real money</span>
   </div>
 
   <ItemGrid server:defer userId={userId}>
-    <div slot="fallback" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div slot="fallback" class="grid gap-6 sm:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[repeat(3,minmax(0,1fr))]">
       {
         Array.from({ length: 3 }).map(() => (
-          <div class="h-80 animate-pulse rounded-2xl border border-stone-200 bg-white" />
+          <div class="h-80 animate-pulse rounded-2xl border border-hairline bg-white" />
         ))
       }
     </div>

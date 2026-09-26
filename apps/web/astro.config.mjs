@@ -29,6 +29,14 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      // Pre-bundle React up front. Discovering these lazily on the first
+      // checkout load re-optimises mid-session; the page then holds a mix of
+      // two dep hashes and hydration dies with `_jsxDEV is not a function`
+      // until a full reload — which the proxied/tunnelled dev server can't
+      // trigger (no HMR socket).
+      include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    },
     server: {
       // Local dev server sits behind our own reverse proxy (single ngrok
       // domain), so arbitrary forwarded Host values are expected.

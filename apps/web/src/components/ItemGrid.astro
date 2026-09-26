@@ -60,17 +60,17 @@ if (userShares.length === 0) {
 {
   userShares.length === 0 ? (
     hasIdentity ? (
-      <div class="collection-empty">
-        <span class="collection-eyebrow">Room for something good</span>
-        <h3>Your next find starts with a send.</h3>
-        <p>Send a product link or screenshot in your connected WhatsApp or Instagram chat. Your matches will appear here.</p>
-        <a href="/explore" class="collection-secondary">Explore products while you wait <span aria-hidden="true">↗</span></a>
+      <div class="rounded-3xl border border-dashed border-hairline bg-white px-6 py-16 text-center">
+        <span class="text-[11px] font-medium tracking-[0.12em] text-ink-soft uppercase">Room for something good</span>
+        <h3 class="mt-4 font-serif text-[28px] tracking-[-0.01em]">Your next find starts with a send.</h3>
+        <p class="mx-auto mt-3 max-w-[380px] text-[14px] leading-[1.7] text-ink-soft">Send a product link or screenshot in your connected WhatsApp or Instagram chat. Your matches will appear here.</p>
+        <a href="/explore" class="motion mt-5 inline-block text-[13px] font-medium text-ink underline decoration-hairline underline-offset-[5px] hover:opacity-[0.92]">Explore products while you wait <span aria-hidden="true">↗</span></a>
       </div>
     ) : (
       <WaitlistCard demoItems={demoItems} />
     )
   ) : (
-    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid gap-6 sm:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[repeat(3,minmax(0,1fr))]">
       {userShares.map((share) => (
         <ShareCard share={share} items={byShare.get(share.id) ?? []} />
       ))}

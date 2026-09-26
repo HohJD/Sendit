@@ -224,17 +224,17 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
         {imageUrl && <Artwork imageUrl={imageUrl} title={title} settled={settled} />}
 
         <div className="flex flex-col">
-          <div className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-8">
-            <span className="inline-block rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-500 uppercase">
+          <div className="rounded-2xl border border-hairline bg-white p-6 shadow-card sm:p-8">
+            <span className="inline-block rounded-full border border-hairline bg-paper px-3 py-1 text-[11px] tracking-[0.12em] text-ink-soft uppercase">
               Sandbox — test purchase, no real money
             </span>
-            <p className="mt-4 text-[12px] font-medium tracking-wide text-stone-500 uppercase">
+            <p className="mt-4 text-[12px] font-medium tracking-wide text-ink-soft uppercase">
               {merchantName}
             </p>
-            <h1 className="mt-2 text-[30px] leading-[0.95] font-medium tracking-[-0.03em] text-stone-900 sm:text-[44px]">
+            <h1 className="mt-2 font-serif text-[32px] leading-[1.05] tracking-[-0.01em] text-ink sm:text-[40px]">
               {title}
             </h1>
-            <p className="text-gradient mt-4 text-[56px] leading-none font-semibold tracking-[-0.03em] sm:text-[72px]">
+            <p className="text-gradient-accent mt-4 font-serif text-[56px] leading-none tracking-[-0.01em] sm:text-[72px]">
               {priceLabel}
             </p>
 
@@ -243,8 +243,8 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                 <div>
                   <Guardrails merchant={merchantName} priceLabel={priceLabel} />
                   {passkeyReady === false && (
-                    <div className="mt-8 rounded-2xl border border-amber-300 bg-amber-50 p-4">
-                      <p className="text-[13px] leading-relaxed text-amber-700">
+                    <div className="mt-8 rounded-2xl border border-amber/40 bg-amber-soft p-4">
+                      <p className="text-[13px] leading-relaxed text-amber">
                         This browser reports no passkey — Prava needs Face ID, Touch ID or Windows
                         Hello. You can still try, but if it dies at authorization, open the page in
                         Safari or Chrome on a device that has one.
@@ -257,10 +257,10 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                 <div>
                   <Timeline stage={stage} merchant={merchantName} phase={phase} />
 
-                  <p className="mt-4 font-mono text-[11px] text-stone-400">Order {orderId}</p>
+                  <p className="mt-4 font-mono text-[11px] text-ink-soft">Order {orderId}</p>
 
                   {phase === 'buying' && (
-                    <p className="mt-4 text-[13px] leading-relaxed text-stone-500">
+                    <p className="mt-4 text-[13px] leading-relaxed text-ink-soft">
                       The agent is filling {merchantName}'s checkout with the one-time card. This
                       takes a minute, and a captcha may need clearing in the worker's window.
                     </p>
@@ -271,7 +271,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                       href={checkoutUrl}
                       target="_blank"
                       rel="noopener"
-                      className="bg-gradient-brand mt-6 block rounded-full px-6 py-3 text-center text-[15px] font-medium text-white"
+                      className="bg-gradient-accent mt-6 block rounded-full px-6 py-3 text-center text-[15px] font-medium text-ink"
                     >
                       Open the Prava tab
                     </a>
@@ -309,11 +309,11 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                   )}
 
                   {error && (
-                    <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                      <p className="text-[13px] leading-relaxed text-stone-600">{error}</p>
+                    <div className="mt-6 rounded-2xl border border-hairline bg-paper p-4">
+                      <p className="text-[13px] leading-relaxed text-ink-soft">{error}</p>
                       <a
                         href="/dashboard"
-                        className="mt-3 inline-block text-[13px] font-medium text-stone-900 uppercase underline underline-offset-4"
+                        className="mt-3 inline-block text-[13px] font-medium text-ink uppercase underline underline-offset-4"
                       >
                         Back to finds
                       </a>
@@ -339,14 +339,14 @@ function Artwork({
   settled: boolean;
 }) {
   return (
-    <div className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-2xl border border-stone-200 bg-white lg:max-w-none">
-      <div className="aspect-[4/5] w-full overflow-hidden bg-stone-100">
+    <div className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-2xl border border-hairline bg-white shadow-card lg:max-w-none">
+      <div className="aspect-[4/5] w-full overflow-hidden bg-paper">
         <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
       </div>
 
       {settled && (
         <div className="absolute inset-x-0 bottom-0 flex h-20 items-center justify-center bg-white/95">
-          <span className="text-gradient text-[32px] leading-none font-semibold tracking-[-0.03em] sm:text-[44px]">
+          <span className="text-gradient-accent font-serif text-[32px] leading-none tracking-[-0.01em] sm:text-[44px]">
             bought
           </span>
         </div>
@@ -358,13 +358,13 @@ function Artwork({
 function Guardrails({ merchant, priceLabel }: { merchant: string; priceLabel: string }) {
   const lines = [
     <>
-      Works <strong className="font-medium text-stone-900">once</strong>, then it's dead
+      Works <strong className="font-medium text-ink">once</strong>, then it's dead
     </>,
     <>
-      Locked to <strong className="font-medium text-stone-900">{merchant}</strong>
+      Locked to <strong className="font-medium text-ink">{merchant}</strong>
     </>,
     <>
-      Capped at <strong className="font-medium text-stone-900">{priceLabel}</strong>
+      Capped at <strong className="font-medium text-ink">{priceLabel}</strong>
     </>,
     <>Your real card never reaches the merchant, or us</>,
   ];
@@ -374,9 +374,21 @@ function Guardrails({ merchant, priceLabel }: { merchant: string; priceLabel: st
       {lines.map((line, i) => (
         <li
           key={i}
-          className="flex gap-3 text-[13px] leading-relaxed text-stone-500 sm:text-[15px]"
+          className="flex gap-3 text-[13px] leading-relaxed text-ink-soft sm:text-[15px]"
         >
-          <span aria-hidden="true" className="text-gradient font-semibold">→</span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 16 10"
+            className="mt-[6px] h-[10px] w-4 shrink-0 text-ink-soft"
+            fill="none"
+          >
+            <path
+              d="M2 5.5 C 5 2.5, 8 7.5, 11 4.5 S 14 4, 14.5 4.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
           <span>{line}</span>
         </li>
       ))}
@@ -389,9 +401,9 @@ function BuyButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="bg-gradient-brand mt-8 flex h-[80px] w-full items-center justify-center rounded-full transition-transform hover:scale-[1.01] sm:h-[100px]"
+      className="motion mt-8 flex h-[80px] w-full items-center justify-center rounded-full bg-gradient-accent hover:scale-[1.01] sm:h-[100px]"
     >
-      <span className="text-[48px] leading-none font-medium tracking-[-0.04em] text-white sm:text-[64px]">
+      <span className="font-serif text-[28px] leading-none tracking-[-0.01em] text-ink sm:text-[34px]">
         buy
       </span>
     </button>
@@ -409,13 +421,13 @@ function Timeline({ stage, merchant, phase }: { stage: number; merchant: string;
 
   return (
     <div>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-stone-100">
+      <div className="h-1 w-full overflow-hidden rounded-full bg-paper">
         <div
-          className="bg-gradient-brand h-full rounded-full transition-all duration-500"
+          className="bg-gradient-accent h-full rounded-full transition-all duration-500"
           style={{ width: `${progress * 100}%` }}
         />
       </div>
-      <ol className="mt-4 border-t border-stone-100">
+      <ol className="mt-4 border-t border-paper">
         {list.map((step, i) => {
           const done = stage > i;
           const active = stage === i && !stalled;
@@ -423,18 +435,18 @@ function Timeline({ stage, merchant, phase }: { stage: number; merchant: string;
           return (
             <li
               key={step.done}
-              className="flex items-center gap-4 border-b border-stone-100 py-4"
+              className="flex items-center gap-4 border-b border-paper py-4"
             >
               <StepMark done={done} active={active} blocked={blocked} />
               <span
                 className={`text-[15px] font-medium tracking-[-0.02em] transition-colors duration-300 sm:text-[18px] ${
                   done
-                    ? 'text-stone-900'
+                    ? 'text-ink'
                     : blocked
-                      ? 'text-amber-600'
+                      ? 'text-amber'
                       : active
-                        ? 'text-stone-700'
-                        : 'text-stone-400'
+                        ? 'text-ink'
+                        : 'text-ink-soft'
                 }`}
               >
                 {done ? label(i, 'done') : label(i, 'active')}
@@ -452,12 +464,12 @@ function StepMark({ done, active, blocked }: { done: boolean; active: boolean; b
     <span
       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-medium transition-colors duration-300 ${
         done
-          ? 'bg-gradient-brand border-transparent text-white'
+          ? 'bg-gradient-accent border-transparent text-ink'
           : blocked
-            ? 'border-amber-400 text-amber-600'
+            ? 'border-amber/40 text-amber'
             : active
-              ? 'border-stone-900 text-stone-900'
-              : 'border-stone-200 text-stone-300'
+              ? 'border-ink text-ink'
+              : 'border-hairline text-hairline'
       }`}
     >
       {done ? '✓' : blocked ? '!' : ''}
@@ -466,7 +478,7 @@ function StepMark({ done, active, blocked }: { done: boolean; active: boolean; b
 }
 
 const FIELD =
-  'w-full rounded-full border border-stone-300 bg-white px-4 py-2.5 text-[13px] tracking-[-0.02em] text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none';
+  'w-full rounded-full border border-hairline bg-white px-5 py-3 text-[13px] tracking-[-0.02em] text-ink placeholder:text-ink-soft focus:border-ink focus:outline-none';
 
 function AddressForm({
   email,
@@ -484,7 +496,7 @@ function AddressForm({
         onSubmit(data as unknown as Shipping);
       }}
     >
-      <p className="text-[11px] font-medium tracking-wide text-stone-500 uppercase">
+      <p className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
         Where should it ship? Saved for next time.
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -497,10 +509,10 @@ function AddressForm({
         <input name="phone" placeholder="Phone" className={FIELD} />
         <input name="countryCode" required defaultValue="US" placeholder="Country" className={`col-span-2 ${FIELD}`} />
       </div>
-      <p className="mt-3 text-[11px] text-stone-400">Confirmation goes to {email}</p>
+      <p className="mt-3 text-[11px] text-ink-soft">Confirmation goes to {email}</p>
       <button
         type="submit"
-        className="bg-gradient-brand mt-4 w-full rounded-full px-6 py-3.5 text-[15px] font-medium text-white transition-transform hover:scale-[1.01]"
+        className="bg-gradient-accent mt-4 w-full rounded-full px-6 py-3.5 text-[15px] font-medium text-ink motion hover:scale-[1.01]"
       >
         Buy it for me
       </button>
@@ -522,32 +534,32 @@ function Outcome({
   return (
     <div
       className={`mt-6 rounded-2xl border p-5 ${
-        tone === 'amber' ? 'border-amber-300 bg-amber-50' : 'border-stone-200 bg-stone-50'
+        tone === 'amber' ? 'border-amber/40 bg-amber-soft' : 'border-hairline bg-paper'
       }`}
     >
       <span
         className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase ${
           tone === 'amber'
-            ? 'border-amber-300 text-amber-700'
-            : 'bg-gradient-brand border-transparent text-white'
+            ? 'border-amber/40 text-amber'
+            : 'bg-gradient-accent border-transparent text-ink'
         }`}
       >
         {tone === 'amber' ? 'Declined' : 'Placed'}
       </span>
       <p
         className={`mt-3 text-[20px] leading-none font-medium tracking-[-0.03em] ${
-          tone === 'amber' ? 'text-amber-700' : 'text-stone-900'
+          tone === 'amber' ? 'text-amber' : 'text-ink'
         }`}
       >
         {heading}
       </p>
-      <p className="mt-3 text-[13px] leading-relaxed text-stone-600">{body}</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-ink-soft">{body}</p>
       {link && (
         <a
           href={link.href}
           target="_blank"
           rel="noopener nofollow"
-          className="mt-4 block rounded-full border border-stone-300 px-6 py-3 text-center text-[15px] font-medium text-stone-700 transition-colors hover:border-stone-900"
+          className="mt-4 block rounded-full border border-hairline px-6 py-3 text-center text-[15px] font-medium text-ink motion hover:border-ink"
         >
           {link.label}
         </a>
@@ -579,38 +591,38 @@ function ManualSettle({
 
   return (
     <div className="mt-6">
-      {note && <p className="text-[13px] leading-relaxed text-amber-700">{note}</p>}
-      <p className="mt-3 text-[13px] leading-relaxed text-stone-500">
+      {note && <p className="text-[13px] leading-relaxed text-amber">{note}</p>}
+      <p className="mt-3 text-[13px] leading-relaxed text-ink-soft">
         The card is minted and still valid. Finish at {merchant} yourself, then tell us how it went —
         Prava needs the outcome to close the session.
       </p>
 
-      <div className="mt-5 rounded-2xl border border-stone-200 bg-stone-50 p-5">
+      <div className="mt-5 rounded-2xl border border-hairline bg-paper p-5">
         <div className="flex items-baseline justify-between">
-          <p className="text-[11px] font-medium tracking-wide text-stone-500 uppercase">
+          <p className="text-[11px] font-medium tracking-wide text-ink-soft uppercase">
             One-time card
           </p>
           <button
             type="button"
             onClick={copy}
-            className="text-[11px] font-medium text-stone-900 uppercase underline underline-offset-4"
+            className="text-[11px] font-medium text-ink uppercase underline underline-offset-4"
           >
             {copied ? 'Copied' : 'Copy number'}
           </button>
         </div>
 
-        <p className="mt-4 font-mono text-[20px] tracking-[0.08em] text-stone-900 sm:text-[26px]">
+        <p className="mt-4 font-mono text-[20px] tracking-[0.08em] text-ink sm:text-[26px]">
           {card.token.replace(/(.{4})/g, '$1 ').trim()}
         </p>
 
-        <dl className="mt-4 flex gap-8 font-mono text-[13px] text-stone-600">
+        <dl className="mt-4 flex gap-8 font-mono text-[13px] text-ink-soft">
           <div>
-            <dt className="text-[10px] tracking-wide text-stone-400 uppercase">CVV</dt>
-            <dd className="mt-0.5 text-stone-900">{card.dynamicCvv}</dd>
+            <dt className="text-[10px] tracking-wide text-ink-soft uppercase">CVV</dt>
+            <dd className="mt-0.5 text-ink">{card.dynamicCvv}</dd>
           </div>
           <div>
-            <dt className="text-[10px] tracking-wide text-stone-400 uppercase">Expiry</dt>
-            <dd className="mt-0.5 text-stone-900">
+            <dt className="text-[10px] tracking-wide text-ink-soft uppercase">Expiry</dt>
+            <dd className="mt-0.5 text-ink">
               {card.expiryMonth}/{card.expiryYear}
             </dd>
           </div>
@@ -621,7 +633,7 @@ function ManualSettle({
         href={productUrl}
         target="_blank"
         rel="noopener nofollow"
-        className="bg-gradient-brand mt-4 block rounded-full px-6 py-4 text-center text-[15px] font-medium text-white sm:text-[20px]"
+        className="bg-gradient-accent mt-4 block rounded-full px-6 py-4 text-center text-[15px] font-medium text-ink sm:text-[20px]"
       >
         Finish at {merchant}
       </a>
@@ -630,14 +642,14 @@ function ManualSettle({
         <button
           type="button"
           onClick={() => onReport('APPROVED')}
-          className="flex-1 rounded-full border border-stone-300 px-4 py-3 text-[13px] font-medium text-stone-700 uppercase transition-colors hover:border-stone-900"
+          className="flex-1 rounded-full border border-hairline px-4 py-3 text-[13px] font-medium text-ink uppercase motion hover:border-ink"
         >
           It went through
         </button>
         <button
           type="button"
           onClick={() => onReport('DECLINED')}
-          className="flex-1 rounded-full border border-stone-300 px-4 py-3 text-[13px] font-medium text-stone-700 uppercase transition-colors hover:border-stone-900"
+          className="flex-1 rounded-full border border-hairline px-4 py-3 text-[13px] font-medium text-ink uppercase motion hover:border-ink"
         >
           It failed
         </button>
