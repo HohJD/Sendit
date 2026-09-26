@@ -7,14 +7,33 @@ if (!userId) return Astro.redirect('/');
 ---
 
 <DashboardShell title="Your finds" active="finds">
-  <header class="mb-10">
-    <p class="text-[12px] font-medium tracking-wide text-stone-500 uppercase">
-      Everything you sent
-    </p>
-    <h1 class="mt-3 text-[36px] leading-[1] font-medium tracking-[-0.03em] sm:text-[44px]">
-      Your finds
-    </h1>
+  <header class="collection-intro">
+    <div>
+      <p class="collection-eyebrow">Your personal collection / Sendit</p>
+      <h1>Good eye.<br /><span>We’ll take it from here.</span></h1>
+      <p class="collection-description">The things that caught your eye, all in one place. Review your matches, explore the store, and approve a test checkout when you’re ready.</p>
+      <div class="collection-actions">
+        <a href="#your-finds" class="collection-primary">View your finds <span aria-hidden="true">↘</span></a>
+        <a href="/explore" class="collection-secondary">Explore products <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+    <div class="collection-mascot">
+      <span class="mascot-label">A little less searching.</span>
+      <img src="/sendit-logo.png" alt="Sendit paper-plane mascot wearing sunglasses" width="1024" height="682" fetchpriority="high" />
+      <span class="mascot-note">A little more finding.</span>
+    </div>
   </header>
+
+  <section class="collection-guide" aria-label="How your collection works">
+    <div><span>01</span><p><strong>Send a spark</strong>A link or screenshot in WhatsApp.</p></div>
+    <div><span>02</span><p><strong>Meet the match</strong>Compare the product and the store.</p></div>
+    <div><span>03</span><p><strong>You make the call</strong>Approve a Prava sandbox checkout.</p></div>
+  </section>
+
+  <div id="your-finds" class="collection-heading">
+    <div><p class="collection-eyebrow">Saved from your conversations</p><h2>Your finds<span aria-hidden="true">.</span></h2></div>
+    <span class="collection-sandbox">Sandbox · No real money</span>
+  </div>
 
   <ItemGrid server:defer userId={userId}>
     <div slot="fallback" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

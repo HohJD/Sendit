@@ -31,7 +31,11 @@ const buyable = (item: Item) => Boolean(item.priceAmount && item.currency);
 const sourceLine = share.sourceUrl || share.inputText || null;
 ---
 
-<article class="relative rounded-2xl border border-stone-200 bg-white transition-colors hover:border-stone-300">
+<article class="find-card relative rounded-2xl border border-stone-200 bg-white transition-colors hover:border-stone-300">
+  <div class="find-card-label">
+    <span>{share.platform === 'wassist' || share.platform === 'whatsapp' ? 'WhatsApp' : share.platform === 'instagram' ? 'Instagram' : 'Shared find'}</span>
+    <span>{share.status === 'resolved' ? 'Reviewed by you next' : share.status === 'failed' ? 'Needs another look' : 'Finding your match'}</span>
+  </div>
   {
     !readOnly && (
       <button
@@ -153,7 +157,7 @@ const sourceLine = share.sourceUrl || share.inputText || null;
                 href={`/checkout/${best.id}`}
                 class="bg-gradient-brand mt-5 block rounded-full px-5 py-3 text-center text-[15px] font-medium text-white transition-transform hover:scale-[1.02]"
               >
-                Buy in one click
+                Review test checkout
               </a>
               <a
                 href={best.productUrl}

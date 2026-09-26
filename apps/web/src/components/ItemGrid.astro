@@ -60,12 +60,11 @@ if (userShares.length === 0) {
 {
   userShares.length === 0 ? (
     hasIdentity ? (
-      <div class="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
-        <p class="text-[20px] font-medium tracking-[-0.03em] sm:text-[26px]">Nothing here yet</p>
-        <p class="mx-auto mt-3 max-w-sm text-[13px] leading-relaxed text-stone-500 sm:text-[15px]">
-          Send a link, screenshot, or "find me this jacket" on WhatsApp — or a reel on
-          Instagram — and it will show up here.
-        </p>
+      <div class="collection-empty">
+        <span class="collection-eyebrow">Room for something good</span>
+        <h3>Your next find starts with a send.</h3>
+        <p>Send a product link or screenshot in your connected WhatsApp or Instagram chat. Your matches will appear here.</p>
+        <a href="/explore" class="collection-secondary">Explore products while you wait <span aria-hidden="true">↗</span></a>
       </div>
     ) : (
       <WaitlistCard demoItems={demoItems} />

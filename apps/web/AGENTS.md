@@ -20,3 +20,13 @@ Consult these guides before working on related tasks:
 - [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
 - [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
 - [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+
+## Verification and deployment handoff
+
+- From the workspace root, run `pnpm --filter @prava/web build` and `pnpm --filter @prava/worker test`.
+- A successful Astro build is not a full TypeScript check. Worker typecheck: `pnpm --filter @prava/worker exec tsc --noEmit`.
+- Vercel project: `hohjds-projects/sendit`, root directory `apps/web`. As verified on 2026-09-26, it has no deployments; hosted database configuration is still outstanding.
+- Before public deployment, replace the identity-only `/dev-login` flow with verified authentication and prevent `/api/payment-result/[sessionId]` from returning card credentials. Update its React consumer together with that API change.
+- `/explore` currently uses the separate catalog search provider, not the Tavily provider used by the chat resolver. Do not assume Tavily credentials enable Explore.
+- Email-only sign-in does not link a WhatsApp identity. Open the signed link received in chat to access that chat account.
+- Never log environment values, signed login links, session cookies, or payment credentials during verification.

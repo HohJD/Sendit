@@ -37,7 +37,7 @@ const TABS = [
       rel="stylesheet"
     />
   </head>
-  <body class="font-display h-full bg-[#fafaf9] text-stone-900 antialiased">
+  <body class="sendit-workspace font-display min-h-full text-stone-900 antialiased">
     <header class="sticky top-0 z-40 border-b border-stone-200 bg-white/80 backdrop-blur">
       <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-8">
         <Wordmark size="md" href="/dashboard" />
@@ -46,6 +46,7 @@ const TABS = [
             TABS.map((tab) => (
               <a
                 href={tab.href}
+                aria-current={active === tab.key ? 'page' : undefined}
                 class:list={[
                   'relative px-4 py-2 text-[13px] font-medium transition-colors',
                   active === tab.key
@@ -70,6 +71,7 @@ const TABS = [
           TABS.map((tab) => (
             <a
               href={tab.href}
+              aria-current={active === tab.key ? 'page' : undefined}
               class:list={[
                 'relative shrink-0 px-3 py-2 text-[13px] font-medium',
                 active === tab.key
