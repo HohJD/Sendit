@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
 // The page.evaluate callbacks below run in the browser, not in Node, so this
 // file needs DOM types without pulling them into the rest of the worker.
+import { resolveMx } from 'node:dns/promises';
 import { chromium, type Frame, type Page } from 'playwright';
 
 export interface ShippingDetails {
@@ -53,29 +54,56 @@ export async function executeCheckout(params: {
   const { productUrl, card, shipping, headless = true, dryRun = false } = params;
 
   const started = Date.now();
-  const step = (name: string, detail = '') =>
-    console.log(`checkout: [${String(Math.round((Date.now() - started) / 1000)).padStart(3)}s] ${name}${detail ? ' — ' + detail : ''}`);
-
-  const browser = await chromium.launch({ headless });
+  // Headful runs are the on-stage view: real Chrome (falls back to bundled
+  // Chromium), a sized window, and a banner narrating each step.
+  const browser = headless
+    ? await chromium.launch({ headless })
+    : await chromium
+        .launch({
+          headless: false,
+          channel: 'chrome',
+          args: ['--window-size=1280,900', '--window-position=40,40', '--disable-blink-features=AutomationControlled'],
+        })
+        .catch(() => chromium.launch({ headless: false, args: ['--window-size=1280,900'] }));
   const context = await browser.newContext({
     locale: 'en-US',
     timezoneId: 'America/Los_Angeles',
+    ...(headless ? {} : { viewport: null }),
   });
+  if (!headless) await context.addInitScript(BANNER_SCRIPT);
   const page = await context.newPage();
+  await page.bringToFront().catch(() => {});
 
-  const fail = async (message: string): Promise<CheckoutResult> => ({
-    status: 'failed',
-    message,
-    url: page.url(),
-    screenshot: (await page.screenshot({ fullPage: false }).catch(() => null))?.toString('base64'),
-  });
+  const banner = (text: string, tone: 'run' | 'ok' | 'bad' = 'run') =>
+    headless
+      ? Promise.resolve()
+      : page
+          .evaluate(([t, k]) => (window as unknown as { __senditBanner?: (a: string, b: string) => void }).__senditBanner?.(t, k), [text, tone] as const)
+          .catch(() => {});
+
+  const step = (name: string, detail = '') => {
+    console.log(`checkout: [${String(Math.round((Date.now() - started) / 1000)).padStart(3)}s] ${name}${detail ? ' — ' + detail : ''}`);
+    void banner(`Sendit agent · ${name}`);
+  };
+
+  const fail = async (message: string): Promise<CheckoutResult> => {
+    await banner(`Sendit agent · stopped — ${message}`, 'bad');
+    return {
+      status: 'failed',
+      message,
+      url: page.url(),
+      screenshot: (await page.screenshot({ fullPage: false }).catch(() => null))?.toString('base64'),
+    };
+  };
 
   try {
     const usUrl = (() => {
       try {
         const u = new URL(productUrl);
-        u.searchParams.set('country', 'US');
-        u.searchParams.set('currency', 'USD');
+        // Price the cart in the shipping country so the checkout form, the
+        // address validation and the currency all agree.
+        u.searchParams.set('country', shipping.countryCode || 'US');
+        if ((shipping.countryCode || 'US') === 'US') u.searchParams.set('currency', 'USD');
         return u.toString();
       } catch {
         return productUrl;
@@ -99,7 +127,16 @@ export async function executeCheckout(params: {
     }
 
     step('in cart');
-    await page.goto(`${origin}/checkout`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    if (!/\/checkouts?\//.test(page.url())) {
+      await page.goto(`${origin}/checkout`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    }
+    // An empty cart makes Shopify bounce /checkout to the storefront — say so
+    // instead of hunting for card fields on the homepage.
+    await page.waitForTimeout(1500);
+    if (!/\/checkouts?\//.test(page.url())) {
+      return await fail('the store sent the agent back to its storefront instead of checkout (empty cart or bot defence)');
+    }
+    step('at checkout', new URL(page.url()).host);
 
     step('filling contact + shipping', `${shipping.city}, ${shipping.countryCode}`);
     await fillContactAndShipping(page, shipping);
@@ -146,6 +183,14 @@ export async function executeCheckout(params: {
 
     const outcome = await readOutcome(page);
     step(`result: ${outcome.status}`, outcome.message);
+    await banner(
+      outcome.status === 'placed'
+        ? `Sendit agent · order placed ✓ — ${outcome.message}`
+        : outcome.status === 'declined'
+          ? `Sendit agent · store declined the sandbox card — ${outcome.message}`
+          : `Sendit agent · ${outcome.message}`,
+      outcome.status === 'placed' ? 'ok' : 'bad',
+    );
     return outcome;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -161,9 +206,36 @@ export async function executeCheckout(params: {
 
     return await fail(message);
   } finally {
-    await browser.close();
+    // Hold the final screen so an audience sees the store's verdict — without
+    // delaying the result the checkout page is waiting for.
+    if (headless) await browser.close();
+    else {
+      setTimeout(() => void browser.close().catch(() => {}), Number(process.env.CHECKOUT_HOLD_MS ?? 15_000));
+    }
   }
 }
+
+/** Fixed banner injected into every page of a headful run. */
+const BANNER_SCRIPT = `(() => {
+  const paint = () => {
+    let el = document.getElementById('__sendit_banner');
+    if (!el && document.body) {
+      el = document.createElement('div');
+      el.id = '__sendit_banner';
+      el.style.cssText = 'position:fixed;z-index:2147483647;left:50%;bottom:24px;transform:translateX(-50%);' +
+        'padding:12px 22px;border-radius:999px;font:500 15px/1.3 Inter,system-ui,sans-serif;color:#1C1B1A;' +
+        'box-shadow:0 10px 30px -10px rgba(0,0,0,.35);pointer-events:none;max-width:90vw;text-align:center;';
+      document.body.appendChild(el);
+    }
+    if (!el) return;
+    const s = JSON.parse(sessionStorage.getItem('__sendit_banner') || '{"t":"Sendit agent · starting","k":"run"}');
+    el.textContent = s.t;
+    el.style.background = s.k === 'ok' ? '#EAF4EE' : s.k === 'bad' ? '#FBEDEB' : 'linear-gradient(90deg,#B9A7FF,#FFC6A8)';
+  };
+  window.__senditBanner = (t, k) => { sessionStorage.setItem('__sendit_banner', JSON.stringify({ t, k })); paint(); };
+  document.addEventListener('DOMContentLoaded', paint);
+  setInterval(paint, 1000);
+})();`;
 
 async function isShopify(page: Page): Promise<boolean> {
   return page.evaluate(
@@ -206,6 +278,20 @@ async function addViaCartPermalink(page: Page): Promise<CartResult> {
     // rather than reporting a missing button.
     const variant = variants.find((v) => v.available && v.id);
     if (!variant?.id) return 'sold-out';
+
+    // Add to the session cart in-page. The /cart/<id>:1 permalink creates a
+    // one-off checkout instead, so a later /checkout sees an empty session
+    // cart and the store bounces the agent to its homepage.
+    const added = await page.evaluate(async (id: number) => {
+      const res = await fetch('/cart/add.js', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ items: [{ id, quantity: 1 }] }),
+      });
+      return res.ok;
+    }, variant.id);
+    if (added) return 'added';
 
     const origin = new URL(page.url()).origin;
     await page.goto(`${origin}/cart/${variant.id}:1`, {
@@ -267,36 +353,86 @@ async function fillFirst(
   return false;
 }
 
+/**
+ * Shopify validates that the contact email's domain resolves. Chat-only
+ * accounts carry a placeholder (wa-…@sendit.app) that does not, so use
+ * CHECKOUT_CONTACT_EMAIL when the given address can't receive mail.
+ */
+async function contactEmail(email: string): Promise<string> {
+  const domain = email.split('@')[1];
+  const ok = domain
+    ? await resolveMx(domain).then((r) => r.length > 0).catch(() => false)
+    : false;
+  return ok ? email : (process.env.CHECKOUT_CONTACT_EMAIL || email);
+}
+
 async function fillContactAndShipping(page: Page, s: ShippingDetails): Promise<void> {
   await page.waitForTimeout(3000);
 
-  await fillFirst(page, ['input#email', 'input[name="email"]', 'input[type="email"]'], s.email);
-
-  const country = page.locator('select[name*="countryCode"], select#Select0').first();
-  if (await country.isVisible().catch(() => false)) {
-    await country.selectOption(s.countryCode).catch(() => undefined);
-  }
+  await fillFirst(page, ['input#email', 'input[name="email"]', 'input[type="email"]'], await contactEmail(s.email));
+  await selectCountry(page, s.countryCode);
 
   await fillFirst(page, ['input[name*="firstName"]', 'input#TextField0'], s.firstName);
   await fillFirst(page, ['input[name*="lastName"]', 'input#TextField1'], s.lastName);
   await fillFirst(page, ['input[name*="address1"]', 'input#shipping-address1'], s.address1);
+  // Shopify's address autocomplete opens a suggestion list; leaving it open
+  // lets a stray suggestion overwrite country/state/ZIP (seen live: the form
+  // flipped to American Samoa).
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(400);
   await fillFirst(page, ['input[name*="city"]'], s.city);
   await fillFirst(page, ['input[name*="postalCode"]', 'input[name*="zip"]'], s.postalCode);
-
   if (s.phone) await fillFirst(page, ['input[name*="phone"]'], s.phone);
+  if (s.province) await selectProvince(page, s.province);
 
-  if (s.province) {
-    const province = page.locator('select[name*="zone"], select[name*="province"]').first();
-    if (await province.isVisible().catch(() => false)) {
-      await province.selectOption({ label: s.province }).catch(() => undefined);
-    }
+  // Verify and repair once — changing country re-renders the form.
+  const country = page.locator('select[name*="countryCode"], select#Select0').first();
+  const current = await country.inputValue().catch(() => s.countryCode);
+  if (current && current !== s.countryCode) {
+    await selectCountry(page, s.countryCode);
+    await page.waitForTimeout(800);
+    await fillFirst(page, ['input[name*="city"]'], s.city);
+    await fillFirst(page, ['input[name*="postalCode"]', 'input[name*="zip"]'], s.postalCode);
+    if (s.province) await selectProvince(page, s.province);
   }
 }
+
+async function selectCountry(page: Page, code: string): Promise<void> {
+  const country = page.locator('select[name*="countryCode"], select#Select0').first();
+  if (!(await country.isVisible().catch(() => false))) return;
+  const ok = await country.selectOption({ value: code }).then(() => true).catch(() => false);
+  if (!ok && COUNTRY_NAMES[code]) await country.selectOption({ label: COUNTRY_NAMES[code] }).catch(() => undefined);
+  await page.waitForTimeout(600);
+}
+
+async function selectProvince(page: Page, province: string): Promise<void> {
+  const select = page.locator('select[name*="zone"], select[name*="province"]').first();
+  if (!(await select.isVisible().catch(() => false))) return;
+  const code = province.trim().toUpperCase();
+  const name = US_STATES[code] ?? province;
+  for (const option of [{ value: code }, { label: name }, { label: province }, { value: name }]) {
+    if (await select.selectOption(option).then(() => true).catch(() => false)) return;
+  }
+}
+
+const COUNTRY_NAMES: Record<string, string> = { US: 'United States', GB: 'United Kingdom', CA: 'Canada', AU: 'Australia', SG: 'Singapore', IN: 'India' };
+
+const US_STATES: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut',
+  DE: 'Delaware', DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois',
+  IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana',
+  NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York',
+  NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania',
+  RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah',
+  VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+};
 
 const CAPTCHA_PROMPT = /solve the captcha|complete the captcha|i am human|hcaptcha|recaptcha/i;
 
 /** How long to leave the window open for someone to click through a captcha. */
-const CAPTCHA_WAIT_MS = 3 * 60_000;
+// Kept under the ~100 s request limit of the tunnel the checkout page calls through.
+const CAPTCHA_WAIT_MS = 50_000;
 
 /**
  * Pause for a person to clear a captcha in the visible browser window.
@@ -312,7 +448,7 @@ async function awaitHumanCaptcha(page: Page, step: (n: string, d?: string) => vo
 
   if (!(await present())) return false;
 
-  step('captcha — solve it in the browser window', `waiting up to ${CAPTCHA_WAIT_MS / 60_000} min`);
+  step('captcha — solve it in the browser window', `waiting up to ${Math.round(CAPTCHA_WAIT_MS / 1000)}s`);
   const deadline = Date.now() + CAPTCHA_WAIT_MS;
 
   while (Date.now() < deadline) {
@@ -376,7 +512,8 @@ async function advance(page: Page, label: RegExp): Promise<void> {
     await button.click({ timeout: 10_000, force: true }).catch(() => undefined);
   }
 
-  await page.waitForLoadState('networkidle', { timeout: 45_000 }).catch(() => undefined);
+  // Shopify checkouts keep polling, so networkidle rarely arrives — cap the wait.
+  await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => undefined);
   await page.waitForTimeout(2500);
 }
 
@@ -475,7 +612,10 @@ async function readOutcome(page: Page): Promise<CheckoutResult> {
     .locator('[role="alert"], [role="status"], .notice, .field__message--error, [class*="error"], [id^="error-for"]')
     .allInnerTexts()
     .catch(() => [] as string[]);
-  const notice = notices.map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ').slice(0, 300);
+  const notice = [...new Set(notices.map((t) => t.replace(/\s+/g, ' ').trim()))]
+    .filter((t) => t && !/^(remember me|refresh page|request id)/i.test(t) && !/double-check your selection|if this is intentional/i.test(t))
+    .join(' | ')
+    .slice(0, 300);
   console.log(`checkout: unrecognised state at ${url}${notice ? ` — store says: ${notice}` : ''}`);
 
   return {

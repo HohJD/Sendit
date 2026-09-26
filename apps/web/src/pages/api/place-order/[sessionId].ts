@@ -179,4 +179,5 @@ async function notifyChat(
         : `Couldn't complete the checkout: ${result.message}`);
 
   await getChannel(identity.platform).sendText(identity.externalId, text);
+  console.log(`order: outcome sent to ${identity.platform} chat`);
 }

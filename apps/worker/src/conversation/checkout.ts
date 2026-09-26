@@ -1,6 +1,7 @@
 import { db, users, identities } from '@prava/db';
 import { and, eq, inArray } from 'drizzle-orm';
 import { loadItem } from '../intake/store.ts';
+import { launchGrokCheckout } from './grok-checkout.ts';
 import { signChatLogin } from './link.ts';
 
 /**
@@ -43,9 +44,23 @@ export async function startCheckout(userId: string, itemId: string): Promise<str
         )
       : 'price unknown';
 
+  let grokOpened = false;
+  if (item.productUrl) {
+    try {
+      await launchGrokCheckout(item.productUrl);
+      grokOpened = true;
+    } catch (err) {
+      console.error('checkout: could not launch Grok', err);
+    }
+  }
+
+  const intro = grokOpened
+    ? 'Grok is opening this store on your laptop. It will stop at the card form.'
+    : 'Test purchase, no real money (Prava sandbox).';
+
   return (
-    `Test purchase, no real money (Prava sandbox).\n\n` +
+    `${intro}\n\n` +
     `${item.title} — ${price}\n${item.merchant ?? 'Unknown merchant'}\n\n` +
-    `Confirm with your passkey here (link valid 15 min):\n${url}`
+    `No real money. When the page asks for a card, confirm with your passkey here (link valid 15 min):\n${url}`
   );
 }

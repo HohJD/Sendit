@@ -83,7 +83,7 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
   const [fallback, setFallback] = useState(false);
   const [slowPasskey, setSlowPasskey] = useState(false);
-  const [watch, setWatch] = useState(false);
+  const [watch, setWatch] = useState(true);
   const startedRef = useRef(false);
 
   useEffect(() => {
