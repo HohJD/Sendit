@@ -252,7 +252,12 @@ export async function createSession(input: CreateSessionInput): Promise<CreateSe
               description: p.description,
               unit_price: p.unitPrice,
               quantity: p.quantity ?? 1,
-              ...(p.productId ? { product_id: p.productId } : {}),
+              // Prava rejects the whole body (VAL_2001) when product_id is a
+              // URL — which is exactly what search-derived candidates carry as
+              // their id. Only pass short, opaque ids.
+              ...(p.productId && p.productId.length <= 64 && !/^https?:\/\//i.test(p.productId)
+                ? { product_id: p.productId }
+                : {}),
             })),
           },
         ],
