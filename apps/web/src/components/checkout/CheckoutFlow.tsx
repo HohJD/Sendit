@@ -245,9 +245,9 @@ export function CheckoutFlow(props: CheckoutFlowProps) {
                   {passkeyReady === false && (
                     <div className="mt-8 rounded-2xl border border-amber/40 bg-amber-soft p-4">
                       <p className="text-[13px] leading-relaxed text-amber">
-                        This browser reports no passkey — Prava needs Face ID, Touch ID or Windows
-                        Hello. You can still try, but if it dies at authorization, open the page in
-                        Safari or Chrome on a device that has one.
+                        This browser reports no passkey support — Prava needs Touch ID, Face ID or
+                        Windows Hello. Open this page in Google Chrome (choose "Chrome profile" when
+                        asked where to save the passkey), or turn on iCloud Keychain for Safari.
                       </p>
                     </div>
                   )}
