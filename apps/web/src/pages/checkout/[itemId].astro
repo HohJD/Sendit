@@ -53,8 +53,11 @@ if (!item.priceAmount || !item.currency) {
     // A card left half-enrolled by a failed device binding traps every later
     // session for this customer id (see purgeEnrolledCards) — start clean.
     await purgeEnrolledCards(userId);
+    // Fresh Prava customer id per attempt: a card left half-enrolled by an
+    // aborted passkey step is bound to the customer id, and every later
+    // session on that id then dies at authentication. A new id starts clean.
     session = await createSession({
-      userId,
+      userId: `${userId}-${Date.now().toString(36)}`,
       userEmail: user.email,
       totalAmount: item.priceAmount,
       currency: item.currency,
