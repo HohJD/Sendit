@@ -1,4 +1,6 @@
-export type ChannelName = 'whatsapp' | 'instagram';
+import type { IncomingHttpHeaders } from 'node:http';
+
+export type ChannelName = 'whatsapp' | 'instagram' | 'wassist';
 
 /**
  * One inbound DM, normalised out of a platform webhook. A single webhook
@@ -43,6 +45,12 @@ export interface ChannelAdapter {
   webhookPath: string;
   /** Handshake token Meta echoes back during webhook subscription. */
   verifyToken(): string;
+  /**
+   * Platforms with their own signature scheme (Wassist's X-Wassist-Signature)
+   * verify the delivery themselves; absent this, intake falls back to Meta's
+   * x-hub-signature-256 + META_APP_SECRET check.
+   */
+  verifyRequest?(rawBody: Buffer, headers: IncomingHttpHeaders): boolean;
   parseWebhook(body: unknown): InboundMessage[];
   sendText(to: string, text: string): Promise<void>;
   sendImage(to: string, image: { url: string; caption?: string }): Promise<void>;

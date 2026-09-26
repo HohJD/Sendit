@@ -1,4 +1,5 @@
 import { instagram } from './instagram.ts';
+import { wassist } from './wassist.ts';
 import { whatsapp } from './whatsapp.ts';
 import type { ChannelAdapter, ChannelName } from './types.ts';
 
@@ -6,6 +7,7 @@ export type { Button, ChannelAdapter, ChannelName, InboundMessage } from './type
 
 export const channels: Record<ChannelName, ChannelAdapter> = {
   whatsapp,
+  wassist,
   instagram,
 };
 

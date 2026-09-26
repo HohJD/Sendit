@@ -1,5 +1,5 @@
 import { db, users, identities } from '@prava/db';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { loadItem } from '../intake/store.ts';
 import { signChatLogin } from './link.ts';
 
@@ -22,7 +22,8 @@ export async function startCheckout(userId: string, itemId: string): Promise<str
     const [identity] = await db
       .select({ externalId: identities.externalId })
       .from(identities)
-      .where(and(eq(identities.userId, userId), eq(identities.platform, 'whatsapp')))
+      // Same identity either way: both adapters key on the sender's phone.
+      .where(and(eq(identities.userId, userId), inArray(identities.platform, ['wassist', 'whatsapp'])))
       .limit(1);
     const external = identity?.externalId ?? userId;
     await db

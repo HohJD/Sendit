@@ -125,8 +125,8 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 };
 
 /**
- * Where the order came from: prefer WhatsApp (primary channel), fall back to
- * Instagram. A user with no chat identity (dashboard sign-in only) just gets
+ * Where the order came from: prefer the WhatsApp channel the user last wrote
+ * on (wassist, then Meta), fall back to Instagram. A user with no chat identity (dashboard sign-in only) just gets
  * no message.
  */
 async function notifyChat(
@@ -140,7 +140,9 @@ async function notifyChat(
     .where(eq(identities.userId, userId));
 
   const identity =
-    rows.find((r) => r.platform === 'whatsapp') ?? rows.find((r) => r.platform === 'instagram');
+    rows.find((r) => r.platform === 'wassist') ??
+    rows.find((r) => r.platform === 'whatsapp') ??
+    rows.find((r) => r.platform === 'instagram');
   if (!identity) return;
 
   const name = merchant ?? 'the store';

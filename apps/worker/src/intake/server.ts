@@ -117,19 +117,26 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (!adapter) return send(res, 404, 'not found');
 
   if (req.method === 'GET') {
+    // Adapters that verify their own POST signatures have no handshake to
+    // answer — still 200 so a dashboard "test URL" ping succeeds.
+    if (adapter.verifyRequest) return send(res, 200, 'ok');
     return handleHandshake(url, adapter, res);
   }
 
   if (req.method !== 'POST') return send(res, 405, 'method not allowed');
 
   const rawBody = await readRawBody(req);
-  const signature = req.headers['x-hub-signature-256'];
 
-  // One Meta app signs both the Instagram and WhatsApp products, so the same
-  // app secret verifies either channel's deliveries.
-  if (!verifySignature(rawBody, asHeader(signature), requireEnv('META_APP_SECRET'))) {
-    return send(res, 401, 'bad signature');
-  }
+  const authorised = adapter.verifyRequest
+    ? adapter.verifyRequest(rawBody, req.headers)
+    : // One Meta app signs both the Instagram and WhatsApp products, so the same
+      // app secret verifies either channel's deliveries.
+      verifySignature(
+        rawBody,
+        asHeader(req.headers['x-hub-signature-256']),
+        requireEnv('META_APP_SECRET'),
+      );
+  if (!authorised) return send(res, 401, 'bad signature');
 
   let inbound: ReturnType<ChannelAdapter['parseWebhook']>;
   try {

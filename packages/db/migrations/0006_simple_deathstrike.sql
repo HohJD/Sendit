@@ -1,0 +1,1 @@
+ALTER TYPE "public"."platform" ADD VALUE 'wassist' BEFORE 'share_target';

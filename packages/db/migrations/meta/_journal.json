@@ -43,6 +43,13 @@
       "when": 1790368383862,
       "tag": "0005_furry_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790415872115,
+      "tag": "0006_simple_deathstrike",
+      "breakpoints": true
     }
   ]
 }

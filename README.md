@@ -171,6 +171,8 @@ WHATSAPP_VERIFY_TOKEN=       # webhook handshake — any string you choose
 META_APP_SECRET=             # webhook signature (one Meta app, both channels)
 META_VERIFY_TOKEN=           # Instagram webhook handshake
 IG_PAGE_ACCESS_TOKEN=        # Instagram DMs + handle → IGSID at sign-in
+WASSIST_API_KEY=             # Wassist replies (alternative to the Meta setup)
+WASSIST_WEBHOOK_SECRET=      # signs X-Wassist-Signature on /webhooks/wassist
 
 PRAVA_SECRET_KEY=            # sandbox keys work instantly
 PRAVA_API_BASE_URL=https://sandbox.api.prava.space

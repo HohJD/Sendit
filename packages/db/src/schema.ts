@@ -11,7 +11,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 
-export const platform = pgEnum('platform', ['instagram', 'whatsapp', 'share_target']);
+export const platform = pgEnum('platform', ['instagram', 'whatsapp', 'wassist', 'share_target']);
 
 export const shareStatus = pgEnum('share_status', [
   'queued',

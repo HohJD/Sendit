@@ -58,6 +58,8 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 | `WHATSAPP_PHONE_NUMBER_ID` | The business phone number's *ID* (not the number itself) |
 | `WHATSAPP_VERIFY_TOKEN` | Handshake token for the WhatsApp webhook — any string you choose |
 | `IG_PAGE_ACCESS_TOKEN` | Instagram messaging + handle→IGSID lookup at sign-in. Optional in a WhatsApp-first setup |
+| `WASSIST_API_KEY` | Replies via Wassist's REST API — alternative to the Meta setup |
+| `WASSIST_WEBHOOK_SECRET` | Signs `X-Wassist-Signature` on `/webhooks/wassist` |
 
 ## Providers
 
@@ -135,6 +137,27 @@ Test it end to end: text `hi`, paste an Instagram/TikTok link, send a
 screenshot of a product, or just write `find me a black jacket`. You'll get a
 match card with Approve/Not-this-one buttons; Approve replies with a signed
 link (valid 15 min) that logs you into the checkout page.
+
+## Wassist (alternative to Meta setup)
+
+Instead of wiring a Meta app yourself, Wassist hosts the WhatsApp side and
+forwards inbound messages to `/webhooks/wassist`. Same Sendit flow underneath —
+the sender is keyed by phone number, so a user is one identity across both.
+
+1. Sign in at [wassist.app](https://wassist.app) with your own phone, and stay
+   in your **personal organization** (Settings → Organization) — sandbox chats
+   live there.
+2. **Settings → Developers → API keys** → Create → `WASSIST_API_KEY`.
+3. **Settings → Developers → Webhooks** → Create with URL
+   `https://<ngrok-8787>/webhooks/wassist`, keep **Subscription message
+   received** ticked, copy the signing secret → `WASSIST_WEBHOOK_SECRET`.
+4. **Numbers → Sandbox → Routing** → *Webhook: forward to your endpoint* →
+   pick the webhook → Save routing.
+
+Sandbox routing only affects your own chat with the sandbox number — nobody
+else's messages reach the endpoint. Going live means connecting a real number
+(WABA or a Wassist-provided one) under **Numbers**, then routing it the same
+way.
 
 ## Demo mode
 
