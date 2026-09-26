@@ -2,9 +2,9 @@
 import '../../styles/global.css';
 import Wordmark from '../../components/Wordmark.astro';
 import { CheckoutFlow } from '../../components/checkout/CheckoutFlow.tsx';
-import { db, items, shares, users, checkouts } from '@prava/db';
+import { db, items, shares, users, checkouts, identities } from '@prava/db';
 import { createSession } from '@prava/worker/payments/prava';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 const { userId } = Astro.locals;
 if (!userId) return Astro.redirect('/');
@@ -24,7 +24,20 @@ const [row] = await db
 // against a real test user's item, using their own signed-in session.
 if (!row) return new Response('Not found', { status: 404 });
 
-const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+let [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+// Chat-first accounts arrive with no email, but Prava requires one to open a
+// session. Mint the same sandbox placeholder the worker uses on Approve, so a
+// user who reaches this page from the dashboard first isn't dead-ended.
+if (user && !user.email) {
+  const [identity] = await db
+    .select({ externalId: identities.externalId })
+    .from(identities)
+    .where(and(eq(identities.userId, userId), inArray(identities.platform, ['wassist', 'whatsapp'])))
+    .limit(1);
+  const email = `wa-${identity?.externalId ?? userId}@sendit.app`;
+  [user] = await db.update(users).set({ email }).where(eq(users.id, userId)).returning();
+}
 
 const { item } = row;
 

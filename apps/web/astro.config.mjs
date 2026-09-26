@@ -22,7 +22,10 @@ export default defineConfig({
     // The worker's reverse proxy forwards ngrok's X-Forwarded-Proto/Host so
     // Astro.url.origin and CSRF origin checks see the public https origin.
     // Without an allowlist Astro ignores those headers entirely.
-    allowedDomains: [{ protocol: 'https', hostname: '**.ngrok-free.dev' }],
+    allowedDomains: [
+      { protocol: 'https', hostname: '**.ngrok-free.dev' },
+      { protocol: 'https', hostname: '**.trycloudflare.com' },
+    ],
   },
   vite: {
     plugins: [tailwindcss()],

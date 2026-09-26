@@ -237,21 +237,26 @@ export async function createSession(input: CreateSessionInput): Promise<CreateSe
       user_email: input.userEmail,
       total_amount: input.totalAmount,
       currency: input.currency,
-      purchase_context: [
-        {
-          merchant_details: {
-            name: input.merchant.name,
-            url: merchantOrigin(input.merchant.url),
-            country_code_iso2: input.merchant.countryCodeIso2,
+      // Prava rejects a bare array here with VAL_2001 "Expected object,
+      // received array" (verified live 2026-09-26) — the contexts sit under
+      // `custom`, matching the quickstart.
+      purchase_context: {
+        custom: [
+          {
+            merchant_details: {
+              name: input.merchant.name,
+              url: merchantOrigin(input.merchant.url),
+              country_code_iso2: input.merchant.countryCodeIso2,
+            },
+            product_details: input.products.map((p) => ({
+              description: p.description,
+              unit_price: p.unitPrice,
+              quantity: p.quantity ?? 1,
+              ...(p.productId ? { product_id: p.productId } : {}),
+            })),
           },
-          product_details: input.products.map((p) => ({
-            description: p.description,
-            unit_price: p.unitPrice,
-            quantity: p.quantity ?? 1,
-            ...(p.productId ? { product_id: p.productId } : {}),
-          })),
-        },
-      ],
+        ],
+      },
       integration_type: 'full_checkout',
       ...(input.callbackUrl ? { callback_url: input.callbackUrl } : {}),
       ...(input.cardId ? { card: { card_id: input.cardId } } : {}),

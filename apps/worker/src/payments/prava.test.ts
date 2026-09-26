@@ -69,9 +69,9 @@ describe('createSession', () => {
 
     const sentBody = JSON.parse(calls[0].init.body as string);
     assert.equal(sentBody.user_id, 'user_1');
-    assert.equal(sentBody.purchase_context.length, 1);
-    assert.equal(sentBody.purchase_context[0].merchant_details.name, 'Nike');
-    assert.equal(sentBody.purchase_context[0].product_details[0].quantity, 1);
+    assert.equal(sentBody.purchase_context.custom.length, 1);
+    assert.equal(sentBody.purchase_context.custom[0].merchant_details.name, 'Nike');
+    assert.equal(sentBody.purchase_context.custom[0].product_details[0].quantity, 1);
   });
 
   test('throws PravaError with the API status and code on failure', async () => {
