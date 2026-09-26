@@ -127,11 +127,16 @@ DM ─▶ keyframe ─▶ identify ─▶ search ─▶ items ─▶ mint ─▶
 | **Checkouts** | Every Prava session: awaiting passkey → card minted → order placed / declined / could not complete, with the merchant's own wording |
 | **Explore** | Browse what the agent has resolved |
 
-Sign-in takes an email and an Instagram handle. The handle is what claims your DMs — the IGSID is resolved from the connected account's conversations, so anyone who has messaged it can pick their shares up.
+Sign-in takes an email and an optional Instagram handle. The handle can claim Instagram DMs through the account's conversations. WhatsApp users enter their chat account through the signed link sent in chat; email-only sign-in does not automatically link WhatsApp finds.
 
 ---
 
 ## Quick start
+
+Continuing in Cursor? Open the entire repository and read [AGENTS.md](AGENTS.md)
+first for the architecture, verified state, Grok provider work and launch blockers.
+Use [SETUP.md](SETUP.md) to recreate local services. Do not overwrite an existing
+`.env`; it contains local credentials and is intentionally excluded from GitHub.
 
 ```bash
 pnpm install
@@ -194,9 +199,9 @@ The dashboard is Vercel-ready. The worker ships as a container built on Playwrig
 
 ## 🔒 Security & trust
 
-**The executor is the dangerous surface** — it spends minted cards. It requires `x-checkout-secret` on every call, compared in constant time, and refuses outright when no secret is configured. On a laptop it binds loopback; hosted, the secret is the only thing between a stranger and a purchase.
+**The executor is the dangerous surface** — it spends minted cards. It requires `x-checkout-secret` on every call, compared in constant time, and refuses outright when no secret is configured. The worker binds `0.0.0.0`, including locally; when exposed through a tunnel, that secret remains essential.
 
-**The card never reaches the browser.** `/api/place-order` fetches credentials server-side from Prava, so the page never holds them and a caller cannot substitute one. Every payment route is scoped to the signed-in user via the local checkout record.
+**Sandbox only; payment hardening is outstanding.** `/api/place-order` fetches credentials server-side from Prava, but `/api/payment-result` currently also returns credentials to the React client. Remove that exposure and update the consumer before public deployment. Payment routes check the signed-in user against the local checkout record, but the identity-only sign-in below is not production authentication.
 
 **Webhooks are verified against raw bytes**, and the return route redirects only to an allowlisted origin — an unvalidated redirect on a public host is an open redirect.
 

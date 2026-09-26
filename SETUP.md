@@ -1,5 +1,9 @@
 # Local setup
 
+For an agent handoff, start with root `AGENTS.md`. It maps the source files,
+provider work, verified state and remaining launch blockers. Open the whole
+`sendit` folder in Cursor; the existing local `.env` must not be overwritten.
+
 ## Prerequisites
 
 - Node 22 (the repo runs on 22.23; `engines` wants >= 22.12)
@@ -29,8 +33,8 @@ One file serves both processes: a root `.env` (the worker loads it via
 packages sees it too). Both are gitignored. `.env.example` lists every key.
 
 ```bash
-cp .env.example .env
-ln -s ../../.env apps/web/.env
+test -e .env || cp .env.example .env
+if [ ! -e apps/web/.env ] && [ ! -L apps/web/.env ]; then ln -s ../../.env apps/web/.env; fi
 openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 ```
 
@@ -45,11 +49,11 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 | `PRAVA_CALLBACK_URL` | https URL Prava returns the cardholder to (the worker's `/prava/return`) |
 | `RETURN_ORIGINS` | Comma-separated front ends the return route may bounce back to |
 | `WEB_ORIGIN` | Public base URL of the dashboard — used to build the checkout link sent over WhatsApp. Defaults to `http://localhost:4321` |
-| `OPENAI_API_KEY` | Vision identify (bare `IDENTIFY_MODEL`). Absent → demo mode |
-| `IDENTIFY_MODEL` | `grok*` → xAI; `vendor/model` → NVIDIA NIM; bare id → OpenAI. Default `moonshotai/kimi-k2.6` |
+| `OPENAI_API_KEY` | Vision and extraction with an OpenAI model; optional when another model provider is used |
+| `IDENTIFY_MODEL` | `grok*` → xAI; `vendor/model` → NVIDIA NIM; bare id → OpenAI. When blank, defaults follow the available key: xAI, then OpenAI, then NIM. Verify model access before live use. |
 | `XAI_API_KEY` | Vision identify via xAI (`grok-*` models — recommended) |
 | `NVIDIA_API_KEY` | Vision identify via NVIDIA NIM (namespaced `IDENTIFY_MODEL`) |
-| `SERPAPI_API_KEY` | Google Shopping discovery. Absent → demo mode |
+| `SERPAPI_API_KEY` | Google Shopping discovery; optional when using Tavily |
 | `TAVILY_API_KEY` | Web-search discovery — an alternative to SerpAPI |
 | `SEARCH_PROVIDER` | `tavily` or `serpapi`; unset → whichever key is present, `serpapi` when both are |
 | `META_APP_SECRET` | Signs `x-hub-signature-256` on every webhook (same app covers IG + WA) |
@@ -63,7 +67,7 @@ openssl rand -hex 32   # use for SESSION_SECRET and CHECKOUT_SHARED_SECRET
 
 ## Providers
 
-Recommended setup:
+Example configuration (check the model is available to your account first):
 
 ```env
 IDENTIFY_MODEL=grok-4.7
@@ -141,8 +145,9 @@ link (valid 15 min) that logs you into the checkout page.
 ## Wassist (alternative to Meta setup)
 
 Instead of wiring a Meta app yourself, Wassist hosts the WhatsApp side and
-forwards inbound messages to `/webhooks/wassist`. Same Sendit flow underneath —
-the sender is keyed by phone number, so a user is one identity across both.
+forwards inbound messages to `/webhooks/wassist`. Both adapters reuse the Sendit
+pipeline, but identities are keyed by platform and sender: switching from Wassist
+to direct Meta WhatsApp does not automatically merge the accounts.
 
 1. Sign in at [wassist.app](https://wassist.app) with your own phone, and stay
    in your **personal organization** (Settings → Organization) — sandbox chats
@@ -161,14 +166,18 @@ way.
 
 ## Demo mode
 
-`DEMO_MODE=true` short-circuits the resolver to a small catalog of real DTC
-product pages — no vision or SerpAPI calls, but the Approve → checkout →
-Prava sandbox chain still runs for real. It also *auto-triggers* when
-`DEMO_MODE` is unset but there is no vision key
-(`OPENAI_API_KEY`/`XAI_API_KEY`/`NVIDIA_API_KEY`) or no search key
-(`TAVILY_API_KEY`/`SERPAPI_API_KEY`) — check the worker
-log for `demo: canned results (<reason>)` to see why. To force the real
-pipeline, set `DEMO_MODE=false` and supply all three keys.
+`DEMO_MODE=true` replaces identification/search with canned product results;
+it does not mock Prava or guarantee a successful merchant checkout. Media is
+still acquired first, so an unreadable link requests a screenshot rather than
+returning a canned result.
+
+Demo mode also activates if all vision keys are missing
+(`OPENAI_API_KEY`/`XAI_API_KEY`/`NVIDIA_API_KEY`) or both search keys are missing
+(`TAVILY_API_KEY`/`SERPAPI_API_KEY`), even with `DEMO_MODE=false`.
+For real matching, configure one model provider and one search provider, select
+them with `IDENTIFY_MODEL` and `SEARCH_PROVIDER`, then set `DEMO_MODE=false`.
+Restart the worker after changing `.env`. API outages with configured keys do
+not currently trigger automatic canned fallback.
 
 ## Prava sandbox
 
@@ -191,10 +200,12 @@ SIG="sha256=$(printf %s "$BODY" | openssl dgst -sha256 -hmac "$META_APP_SECRET" 
 curl -s -X POST http://localhost:8787/webhooks/whatsapp -H "x-hub-signature-256: $SIG" -H 'content-type: application/json' -d "$BODY"
 ```
 
-Expect a `shares` row (`input_kind='link'`), three canned `items`, and a
-logged outbound-send failure carrying the full message body. Plain text
-without a link gets the "send me a link or a screenshot" hint and records
-nothing.
+This queues a link share, but the example URL is a placeholder: expect media
+acquisition to fail, not three product results. Use the mocked worker tests for
+repeatable offline verification. Do not replay real users' webhooks or run this
+against a worker with live messaging credentials without their permission.
+Plain text does not queue a search. Repeated guidance is suppressed until a new
+share arrives; duplicate-message protection is currently process-local.
 
 ## Deploy (Vercel)
 
@@ -204,12 +215,35 @@ pooled URL goes in `PROD_DATABASE_URL` and the direct URL in
 `PROD_DATABASE_URL_DIRECT` (both in the local `.env`; never committed).
 
 ```bash
-cd apps/web && vercel link --yes --project sendit   # once
+(cd apps/web && vercel link --yes --project sendit)   # once; keep this shell at the repo root
 ./scripts/vercel-migrate.sh                          # migrate the prod DB
 ./scripts/vercel-env.sh                              # push env vars to Vercel
-cd apps/web && vercel --prod                         # deploy
+(cd apps/web && vercel --prod)                       # deploy; verify workspace upload includes packages/db and apps/worker
 ```
 
 After the first deploy, set `WEB_ORIGIN` in `.env` to the Vercel URL so
 WhatsApp checkout links point at the deployed dashboard, and update
 `PRAVA_CALLBACK_URL` / `RETURN_ORIGINS` to the https endpoints.
+Both worker and web must use the same hosted database and shared session/executor
+secrets; do not leave the worker pointing at the local database while Vercel uses
+Supabase. Resolve the authentication and credential-exposure blockers in
+`AGENTS.md` before opening the application to public users.
+
+## Continuing on this Mac or another machine
+
+Cursor on this Mac can open this folder and use the existing toolchain and local
+Postgres database. `apps/web/.env` points to the root `.env`. Current worker output
+is in `sendit-worker.log` (gitignored). Check port 8787 before launching another
+worker; a second instance must not compete for the same queue.
+
+A GitHub clone contains source, migrations, static assets and deployment helpers,
+but not the local secrets, database records or logged-in service accounts. On a
+new machine, follow the prerequisites above, recreate `.env` securely, install
+Playwright Chromium and apply migrations to a fresh database. Existing database
+records require a separate private backup/restore if you need to keep them. Never
+commit that backup to this public repository. ngrok credentials and browser
+binaries live outside the project directory by design.
+
+Keep other assistants' WhatsApp auto-replies disabled in the sandbox test chat.
+The user should send one screenshot manually for a controlled integration test;
+all regression tests should mock outbound sends.
