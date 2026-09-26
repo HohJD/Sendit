@@ -18,7 +18,18 @@ export default defineConfig({
   output: 'server',
   adapter: vercel(),
   integrations: [react()],
+  security: {
+    // The worker's reverse proxy forwards ngrok's X-Forwarded-Proto/Host so
+    // Astro.url.origin and CSRF origin checks see the public https origin.
+    // Without an allowlist Astro ignores those headers entirely.
+    allowedDomains: [{ protocol: 'https', hostname: '**.ngrok-free.dev' }],
+  },
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      // Local dev server sits behind our own reverse proxy (single ngrok
+      // domain), so arbitrary forwarded Host values are expected.
+      allowedHosts: true,
+    },
   },
 });

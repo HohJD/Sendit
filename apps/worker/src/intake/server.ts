@@ -1,4 +1,5 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from 'node:http';
+import { lookup } from 'node:dns/promises';
 import { timingSafeEqual } from 'node:crypto';
 import { executeCheckout, type CardCredentials, type ShippingDetails } from '../checkout/shopify.ts';
 import { verifyHandshake, verifySignature } from './signature.ts';
@@ -114,7 +115,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   }
   if (url.pathname === '/execute' && req.method === 'POST') return runCheckout(req, res);
 
-  if (!adapter) return send(res, 404, 'not found');
+  // The worker sits on the one public ngrok domain — everything that isn't a
+  // worker route is the dashboard, proxied to the Astro dev server. WEB_PROXY_TARGET
+  // unset keeps the old 404 behaviour.
+  if (!adapter) {
+    const target = process.env.WEB_PROXY_TARGET;
+    if (!target) return send(res, 404, 'not found');
+    return proxyToWeb(req, res, target);
+  }
 
   if (req.method === 'GET') {
     // Adapters that verify their own POST signatures have no handshake to
@@ -180,6 +188,57 @@ function handleHandshake(url: URL, adapter: ChannelAdapter, res: ServerResponse)
   return challenge ? send(res, 200, challenge) : send(res, 403, 'forbidden');
 }
 
+/**
+ * Stream the request to the Astro dev server and its response back verbatim.
+ * The original Host is forwarded unchanged — Astro's CSRF check compares
+ * Origin vs Host, and the public ngrok host must survive the hop. WebSocket
+ * upgrades (Vite HMR) are refused rather than proxied; dev pages work fine
+ * without live reload.
+ */
+async function proxyToWeb(req: IncomingMessage, res: ServerResponse, target: string): Promise<void> {
+  if (req.headers.upgrade) {
+    return send(res, 501, 'upgrade not supported');
+  }
+
+  // Dev tools often bind only ::1 while the target URL is written 127.0.0.1 —
+  // resolve the hostname instead of trusting the literal address.
+  let t: URL;
+  let address: string;
+  try {
+    t = new URL(target);
+    ({ address } = await lookup(t.hostname));
+  } catch {
+    return send(res, 502, 'web unreachable');
+  }
+
+  const upstream = httpRequest({
+    host: address,
+    port: t.port || (t.protocol === 'https:' ? 443 : 80),
+    method: req.method,
+    path: req.url, // path + query, untouched
+    headers: {
+      ...req.headers,
+      ...(req.headers['x-forwarded-proto']
+        ? {
+            'x-forwarded-host': req.headers['x-forwarded-host'] ?? req.headers.host,
+          }
+        : {}),
+    },
+    timeout: 30_000,
+  });
+
+  upstream.on('timeout', () => upstream.destroy(new Error('upstream timeout')));
+  upstream.on('response', (up) => {
+    res.writeHead(up.statusCode ?? 502, up.headers);
+    up.pipe(res);
+  });
+  upstream.on('error', () => {
+    if (!res.headersSent) send(res, 502, 'web unreachable');
+    else res.destroy();
+  });
+  req.pipe(upstream); // ends the upstream request when the inbound body ends
+}
+
 function asHeader(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -190,15 +249,20 @@ function requireEnv(name: string): string {
   return value;
 }
 
-export function startIntakeServer(port: number): void {
-  createServer((req, res) => {
+/** Exported for tests — startIntakeServer is the same handler on a fixed port. */
+export function createRequestHandler() {
+  return (req: IncomingMessage, res: ServerResponse) => {
     handle(req, res).catch((err) => {
       console.error('intake: unhandled error', err);
       if (!res.headersSent) send(res, 500, 'error');
     });
-    // 0.0.0.0 so a container platform can route to it; /execute is protected
-    // by CHECKOUT_SHARED_SECRET rather than by being unreachable.
-  }).listen(port, '0.0.0.0', () => {
+  };
+}
+
+export function startIntakeServer(port: number): void {
+  // 0.0.0.0 so a container platform can route to it; /execute is protected
+  // by CHECKOUT_SHARED_SECRET rather than by being unreachable.
+  createServer(createRequestHandler()).listen(port, '0.0.0.0', () => {
     console.log(`worker listening on :${port} (webhooks + /execute)`);
   });
 }
